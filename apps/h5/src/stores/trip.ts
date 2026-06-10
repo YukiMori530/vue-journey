@@ -1,5 +1,7 @@
 import { defineStore } from 'pinia'
+import type { HotTrip, FeaturedTopic } from '../data/discover'
 import type { CreateTripInput, DayPlan, Trip } from '../types/trip'
+import { parseDaysFromDuration, parseGuideText } from '../utils/parse-guide'
 
 const THEMES = [
   'linear-gradient(135deg, #d4ede8 0%, #c5e8e0 100%)',
@@ -46,6 +48,10 @@ function buildTitle(destination: string, days: number, preferences: string[]) {
   return `${destination}${days}日游`
 }
 
+function countPlaces(dayPlans: DayPlan[]) {
+  return dayPlans.reduce((sum, day) => sum + day.places.length, 0)
+}
+
 const seedTrips: Trip[] = [
   {
     id: 1,
@@ -86,23 +92,83 @@ export const useTripStore = defineStore('trip', {
   },
 
   actions: {
+    saveTrip(payload: Omit<Trip, 'id'>) {
+      const trip: Trip = { ...payload, id: this.nextId++ }
+      this.trips.unshift(trip)
+      return trip
+    },
+
     addTrip(input: CreateTripInput) {
       const dayPlans = mockDayPlans(input.destination, input.days)
-      const placeCount = dayPlans.reduce((sum, day) => sum + day.places.length, 0)
-      const trip: Trip = {
-        id: this.nextId++,
+      return this.saveTrip({
         destination: input.destination,
         days: input.days,
         preferences: input.preferences,
         title: buildTitle(input.destination, input.days, input.preferences),
         nights: `${input.days}天${Math.max(input.days - 1, 0)}晚`,
-        placeCount,
+        placeCount: countPlaces(dayPlans),
         cover: COVERS[this.nextId % COVERS.length],
         theme: THEMES[this.nextId % THEMES.length],
         dayPlans,
-      }
-      this.trips.unshift(trip)
-      return trip
+      })
+    },
+
+    addTripFromText(text: string) {
+      const parsed = parseGuideText(text)
+      const placeCount = countPlaces(parsed.dayPlans)
+      return this.saveTrip({
+        destination: parsed.destination,
+        days: parsed.days,
+        preferences: [],
+        title: `${parsed.destination}${parsed.days}日导入行程`,
+        nights: `${parsed.days}天${Math.max(parsed.days - 1, 0)}晚`,
+        placeCount,
+        cover: COVERS[(this.nextId + 1) % COVERS.length],
+        theme: THEMES[(this.nextId + 1) % THEMES.length],
+        dayPlans: parsed.dayPlans,
+      })
+    },
+
+    addTripFromHotTrip(item: HotTrip) {
+      const days = parseDaysFromDuration(item.duration)
+      const destination = item.keywords[0] ?? '热门'
+      const dayPlans = mockDayPlans(destination, days).map((day, index) => ({
+        ...day,
+        places: day.places.map((_place, placeIndex) => {
+          const keyword = item.keywords[(index + placeIndex) % item.keywords.length]
+          return `${destination}·${keyword}${placeIndex + 1}号点`
+        }),
+      }))
+
+      return this.saveTrip({
+        destination,
+        days,
+        preferences: item.keywords.slice(1, 3),
+        title: item.title,
+        nights: item.duration.replace(/\s*·.*/, '').trim(),
+        placeCount: item.placeCount,
+        cover: item.cover,
+        theme: THEMES[this.nextId % THEMES.length],
+        dayPlans,
+      })
+    },
+
+    addTripFromTopic(item: FeaturedTopic) {
+      const days = Math.max(1, Math.min(3, Math.ceil(item.placeCount / 4)))
+      const destination = item.keywords[0] ?? '专题'
+      const dayPlans = mockDayPlans(destination, days)
+
+      return this.saveTrip({
+        destination,
+        days,
+        preferences: item.keywords,
+        title: item.title,
+        nights: `${days}天${Math.max(days - 1, 0)}晚`,
+        placeCount: item.placeCount,
+        cover: item.cover,
+        theme: THEMES[(this.nextId + 2) % THEMES.length],
+        dayPlans,
+      })
     },
 
     removeTrip(id: number) {

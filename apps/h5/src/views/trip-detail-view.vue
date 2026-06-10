@@ -35,13 +35,7 @@ async function handleDelete() {
 
 <template>
   <div v-if="trip" class="detail-page">
-    <van-nav-bar
-      title="行程详情"
-      left-arrow
-      fixed
-      placeholder
-      @click-left="goBack"
-    />
+    <van-nav-bar title="行程详情" left-arrow fixed placeholder @click-left="goBack" />
 
     <div class="detail-hero" :style="{ background: trip.theme }">
       <h1 class="detail-title">{{ trip.title }}</h1>
@@ -53,15 +47,20 @@ async function handleDelete() {
 
     <section class="day-list">
       <article v-for="day in trip.dayPlans" :key="day.day" class="day-card">
-        <h2 class="day-title">第 {{ day.day }} 天</h2>
-        <van-cell-group inset>
-          <van-cell
-            v-for="(place, index) in day.places"
-            :key="place"
-            :title="place"
-            :label="`第 ${index + 1} 站`"
-          />
-        </van-cell-group>
+        <div class="day-head">
+          <span class="day-badge">Day {{ day.day }}</span>
+          <h2 class="day-title">第 {{ day.day }} 天</h2>
+        </div>
+
+        <div class="timeline">
+          <div v-for="(place, index) in day.places" :key="place" class="timeline-item">
+            <div class="timeline-dot" />
+            <div class="timeline-content">
+              <p class="place-name">{{ place }}</p>
+              <p class="place-order">第 {{ index + 1 }} 站</p>
+            </div>
+          </div>
+        </div>
       </article>
     </section>
 
@@ -69,7 +68,7 @@ async function handleDelete() {
       <van-button type="danger" block round plain @click="handleDelete">
         删除行程
       </van-button>
-      <p class="detail-tip">Day 4：以上为模拟数据，后续由 AI 生成</p>
+      <p class="detail-tip">后续接入 DeepSeek，AI 自动生成每日路线</p>
     </div>
   </div>
 
@@ -110,18 +109,91 @@ async function handleDelete() {
 }
 
 .day-list {
-  padding-top: 8px;
+  padding: 8px 16px 0;
 }
 
 .day-card {
-  margin-bottom: 8px;
+  margin-bottom: 16px;
+  padding: 16px;
+  border-radius: 16px;
+  background: #fff;
+}
+
+.day-head {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+.day-badge {
+  padding: 4px 10px;
+  border-radius: 20px;
+  background: #111;
+  font-size: 11px;
+  font-weight: 600;
+  color: #fff;
 }
 
 .day-title {
-  margin: 16px 16px 10px;
+  margin: 0;
   font-size: 16px;
   font-weight: 600;
   color: #323233;
+}
+
+.timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.timeline-item {
+  display: flex;
+  gap: 12px;
+  padding-bottom: 16px;
+}
+
+.timeline-item:last-child {
+  padding-bottom: 0;
+}
+
+.timeline-dot {
+  position: relative;
+  flex-shrink: 0;
+  width: 10px;
+  height: 10px;
+  margin-top: 6px;
+  border-radius: 50%;
+  background: #6aabf5;
+}
+
+.timeline-item:not(:last-child) .timeline-dot::after {
+  content: '';
+  position: absolute;
+  top: 12px;
+  left: 4px;
+  width: 2px;
+  height: calc(100% + 10px);
+  background: #ebedf0;
+}
+
+.timeline-content {
+  flex: 1;
+  padding-bottom: 4px;
+}
+
+.place-name {
+  margin: 0 0 4px;
+  font-size: 15px;
+  font-weight: 500;
+  color: #323233;
+}
+
+.place-order {
+  margin: 0;
+  font-size: 12px;
+  color: #969799;
 }
 
 .detail-actions {

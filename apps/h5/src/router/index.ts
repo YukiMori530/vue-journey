@@ -4,6 +4,7 @@ import ExploreView from '../views/explore-view.vue'
 import CreateView from '../views/create-view.vue'
 import TripDetailView from '../views/trip-detail-view.vue'
 import SearchView from '../views/search-view.vue'
+import ImportView from '../views/import-view.vue'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -11,6 +12,7 @@ const router = createRouter({
     { path: '/', name: 'trip', component: TripView },
     { path: '/explore', name: 'explore', component: ExploreView },
     { path: '/search', name: 'search', component: SearchView, meta: { hideTabBar: true } },
+    { path: '/import', name: 'import', component: ImportView, meta: { hideTabBar: true } },
     { path: '/create', name: 'create', component: CreateView, meta: { hideTabBar: true } },
     { path: '/trip/:id', name: 'trip-detail', component: TripDetailView, meta: { hideTabBar: true } },
   ],

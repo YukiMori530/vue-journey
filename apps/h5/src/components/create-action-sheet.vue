@@ -16,7 +16,7 @@ function goCreatePlan() {
 
 function goSmartImport() {
   close()
-  showToast('智能导入功能开发中')
+  router.push('/import')
 }
 
 function goCollect() {

@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { showToast } from 'vant'
+import { showConfirmDialog, showToast } from 'vant'
 import { filterDiscover } from '../data/discover'
+import { useTripStore } from '../stores/trip'
 import type { FeaturedTopic, HotTrip } from '../data/discover'
 
 const router = useRouter()
+const tripStore = useTripStore()
 const keyword = ref('')
 
 const filtered = computed(() => filterDiscover(keyword.value))
@@ -17,12 +19,32 @@ function goBack() {
   router.back()
 }
 
-function openHotTrip(item: HotTrip) {
-  showToast(`「${item.title}」模板即将上线`)
+async function openHotTrip(item: HotTrip) {
+  try {
+    await showConfirmDialog({
+      title: '添加热门行程',
+      message: `将「${item.title}」加入我的计划？`,
+    })
+    const trip = tripStore.addTripFromHotTrip(item)
+    showToast('已添加到我的计划')
+    router.push(`/trip/${trip.id}`)
+  } catch {
+    // 用户取消
+  }
 }
 
-function openTopic(item: FeaturedTopic) {
-  showToast(`「${item.title}」专题即将上线`)
+async function openTopic(item: FeaturedTopic) {
+  try {
+    await showConfirmDialog({
+      title: '添加精选专题',
+      message: `根据专题「${item.title}」生成探索行程？`,
+    })
+    const trip = tripStore.addTripFromTopic(item)
+    showToast('专题行程已生成')
+    router.push(`/trip/${trip.id}`)
+  } catch {
+    // 用户取消
+  }
 }
 
 function showMore(type: 'trip' | 'topic') {
