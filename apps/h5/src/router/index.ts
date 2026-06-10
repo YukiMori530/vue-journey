@@ -1,7 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import HomeView from '@/views/home-view.vue'
-import PlanView from '@/views/plan-view.vue'
-import MineView from '@/views/mine-view.vue'
+import HomeView from '../views/home-view.vue'
+import PlanView from '../views/plan-view.vue'
+import MineView from '../views/mine-view.vue'
 
 const router = createRouter({
   history: createWebHistory(),
