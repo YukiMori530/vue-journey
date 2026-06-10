@@ -1,23 +1,41 @@
 <script setup lang="ts">
-import { RouterView } from 'vue-router'
+import { computed, ref } from 'vue'
+import { useRoute } from 'vue-router'
+import AppTabBar from './components/app-tab-bar.vue'
+import CreateActionSheet from './components/create-action-sheet.vue'
+
+const route = useRoute()
+const showCreateSheet = ref(false)
+
+const showTabBar = computed(() => !route.meta.hideTabBar)
+
+function openCreateSheet() {
+  showCreateSheet.value = true
+}
 </script>
 
 <template>
-  <div class="app-layout">
+  <div class="app-layout" :class="{ 'no-tabbar': !showTabBar }">
     <RouterView />
 
-    <van-tabbar route safe-area-inset-bottom>
-      <van-tabbar-item replace to="/" icon="home-o">首页</van-tabbar-item>
-      <van-tabbar-item replace to="/plan" icon="guide-o">规划</van-tabbar-item>
-      <van-tabbar-item replace to="/mine" icon="user-o">我的</van-tabbar-item>
-    </van-tabbar>
+    <CreateActionSheet v-model:show="showCreateSheet" />
+
+    <AppTabBar
+      v-if="showTabBar"
+      :sheet-open="showCreateSheet"
+      @open-create="openCreateSheet"
+    />
   </div>
 </template>
 
 <style scoped>
 .app-layout {
   min-height: 100vh;
-  padding-bottom: 50px;
-  background: #f7f8fa;
+  padding-bottom: calc(56px + env(safe-area-inset-bottom));
+  background: #f5f6f7;
+}
+
+.app-layout.no-tabbar {
+  padding-bottom: 0;
 }
 </style>
