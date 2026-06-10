@@ -26,7 +26,7 @@ const trips: TripCardData[] = [
   <div class="trip-page">
     <header class="trip-header">
       <div class="brand">
-        <span class="brand-icon">⛰️</span>
+        <img class="brand-logo" src="/app-logo.svg" alt="圆周旅迹" />
         <span class="brand-name">圆周旅迹</span>
       </div>
       <div class="header-actions">
@@ -73,8 +73,10 @@ const trips: TripCardData[] = [
   align-items: center;
 }
 
-.brand-icon {
-  font-size: 22px;
+.brand-logo {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
 }
 
 .brand-name {
