@@ -9,6 +9,10 @@ const tripStore = useTripStore()
 function openTrip(id: number) {
   router.push(`/trip/${id}`)
 }
+
+function openSearch() {
+  router.push('/search')
+}
 </script>
 
 <template>
@@ -19,7 +23,7 @@ function openTrip(id: number) {
         <span class="brand-name">途绘</span>
       </div>
       <div class="header-actions">
-        <van-icon name="search" size="22" color="#323233" />
+        <van-icon name="search" size="22" color="#323233" @click="openSearch" />
         <img
           class="user-avatar"
           src="https://api.dicebear.com/7.x/avataaars/svg?seed=me"

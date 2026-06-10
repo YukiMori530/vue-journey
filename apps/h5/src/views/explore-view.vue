@@ -1,4 +1,12 @@
 <script setup lang="ts">
+import { useRouter } from 'vue-router'
+
+const router = useRouter()
+
+function openSearch() {
+  router.push('/search')
+}
+
 const categories = [
   { icon: '🌳', label: '景点' },
   { icon: '🍴', label: '美食' },
@@ -45,7 +53,7 @@ const mapMarkers = [
           <p class="weather">⛈ 雷暴 16° - 27°</p>
         </div>
         <div class="header-actions">
-          <van-icon name="search" size="22" color="#323233" />
+          <van-icon name="search" size="22" color="#323233" @click="openSearch" />
           <img
             class="user-avatar"
             src="https://api.dicebear.com/7.x/avataaars/svg?seed=me"
