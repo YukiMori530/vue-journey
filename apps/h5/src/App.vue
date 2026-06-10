@@ -31,7 +31,7 @@ function openCreateSheet() {
 <style scoped>
 .app-layout {
   min-height: 100vh;
-  padding-bottom: calc(56px + env(safe-area-inset-bottom));
+  padding-bottom: calc(68px + env(safe-area-inset-bottom));
   background: #f5f6f7;
 }
 

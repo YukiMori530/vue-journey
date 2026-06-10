@@ -11,6 +11,7 @@ export {}
 /* prettier-ignore */
 declare module 'vue' {
   export interface GlobalComponents {
+    AppHeader: typeof import('./src/components/app-header.vue')['default']
     AppTabBar: typeof import('./src/components/app-tab-bar.vue')['default']
     CreateActionSheet: typeof import('./src/components/create-action-sheet.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']

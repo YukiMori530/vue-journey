@@ -53,10 +53,12 @@ const mapMarkers = [
           <p class="weather">⛈ 雷暴 16° - 27°</p>
         </div>
         <div class="header-actions">
-          <van-icon name="search" size="22" color="#323233" @click="openSearch" />
+          <button type="button" class="icon-btn" aria-label="搜索" @click="openSearch">
+            <van-icon name="search" size="24" />
+          </button>
           <img
             class="user-avatar"
-            src="https://api.dicebear.com/7.x/avataaars/svg?seed=me"
+            src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&q=80"
             alt="头像"
           />
         </div>
@@ -163,14 +165,30 @@ const mapMarkers = [
 
 .header-actions {
   display: flex;
-  gap: 14px;
+  gap: 12px;
   align-items: center;
 }
 
-.user-avatar {
-  width: 32px;
-  height: 32px;
+.icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border: none;
   border-radius: 50%;
+  background: rgb(255 255 255 / 80%);
+  color: #111;
+  cursor: pointer;
+}
+
+.user-avatar {
+  width: 38px;
+  height: 38px;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  object-fit: cover;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 10%);
 }
 
 .category-scroll {
@@ -252,7 +270,7 @@ const mapMarkers = [
 .bottom-sheet {
   position: fixed;
   right: 0;
-  bottom: 56px;
+  bottom: 72px;
   left: 0;
   z-index: 10;
   max-width: 480px;

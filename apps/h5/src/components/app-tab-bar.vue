@@ -11,36 +11,41 @@ const emit = defineEmits<{
 
 const route = useRoute()
 
+const isTripActive = () => route.path === '/'
+const isExploreActive = () => route.path === '/explore'
+
 function onAddClick() {
   emit('openCreate')
 }
 </script>
 
 <template>
-  <nav class="tab-bar" :class="{ compact: sheetOpen }">
-    <router-link to="/" class="tab-item" :class="{ active: route.path === '/' }">
-      <van-icon name="bag-o" size="22" />
-      <span>行程</span>
-    </router-link>
+  <nav class="tab-bar">
+    <div class="tab-bar__inner" :class="{ compact: sheetOpen }">
+      <router-link to="/" class="tab-item" :class="{ active: isTripActive() }">
+        <van-icon :name="isTripActive() ? 'bag' : 'bag-o'" class="tab-item__icon" />
+        <span class="tab-item__label">行程</span>
+      </router-link>
 
-    <button
-      v-if="!sheetOpen"
-      type="button"
-      class="tab-add"
-      aria-label="新建"
-      @click="onAddClick"
-    >
-      <van-icon name="plus" size="22" color="#fff" />
-    </button>
+      <button
+        v-if="!sheetOpen"
+        type="button"
+        class="tab-add"
+        aria-label="新建"
+        @click="onAddClick"
+      >
+        <span class="tab-add__plus">+</span>
+      </button>
 
-    <router-link
-      to="/explore"
-      class="tab-item"
-      :class="{ active: route.path === '/explore' }"
-    >
-      <van-icon name="location-o" size="22" />
-      <span>探索</span>
-    </router-link>
+      <router-link
+        to="/explore"
+        class="tab-item"
+        :class="{ active: isExploreActive() }"
+      >
+        <van-icon :name="isExploreActive() ? 'location' : 'location-o'" class="tab-item__icon" />
+        <span class="tab-item__label">探索</span>
+      </router-link>
+    </div>
   </nav>
 </template>
 
@@ -51,58 +56,81 @@ function onAddClick() {
   bottom: 0;
   left: 0;
   z-index: 100;
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-around;
   max-width: 480px;
-  height: 56px;
-  padding: 0 32px calc(8px + env(safe-area-inset-bottom));
   margin: 0 auto;
-  background: rgb(255 255 255 / 96%);
-  backdrop-filter: blur(8px);
+  padding: 8px 0 calc(10px + env(safe-area-inset-bottom));
+  background: #fff;
 }
 
-.tab-bar.compact {
-  justify-content: space-around;
-  padding: 0 48px calc(8px + env(safe-area-inset-bottom));
+.tab-bar__inner {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  padding: 0 32px;
+}
+
+.tab-bar__inner.compact {
+  grid-template-columns: 1fr 1fr;
+  padding: 0 56px;
 }
 
 .tab-item {
   display: flex;
-  flex: 1;
   flex-direction: column;
-  gap: 2px;
+  gap: 5px;
   align-items: center;
-  font-size: 11px;
-  color: #969799;
+  justify-self: center;
+  padding: 2px 8px;
+  color: #b8b9be;
   text-decoration: none;
-}
-
-.tab-bar.compact .tab-item {
-  flex: 0 0 auto;
+  transition: color 0.2s ease;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .tab-item.active {
-  color: #323233;
+  color: #111;
+}
+
+.tab-item__icon {
+  font-size: 30px;
+  line-height: 1;
+}
+
+.tab-item :deep(.van-icon) {
+  color: currentcolor;
+}
+
+.tab-item__label {
+  font-size: 12px;
   font-weight: 500;
+  line-height: 1;
+  letter-spacing: 0.2px;
 }
 
 .tab-add {
   display: flex;
-  flex-shrink: 0;
   align-items: center;
   justify-content: center;
-  width: 52px;
-  height: 52px;
-  margin-bottom: 6px;
+  width: 44px;
+  height: 44px;
   border: none;
-  border-radius: 16px;
-  background: #1a1a1a;
-  box-shadow: 0 4px 12px rgb(0 0 0 / 18%);
+  border-radius: 18px;
+  background: #111;
   cursor: pointer;
+  transition: transform 0.15s ease, opacity 0.15s ease;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .tab-add:active {
-  transform: scale(0.96);
+  transform: scale(0.92);
+  opacity: 0.88;
+}
+
+.tab-add__plus {
+  margin-top: -1px;
+  font-size: 26px;
+  font-weight: 200;
+  line-height: 1;
+  color: #fff;
 }
 </style>

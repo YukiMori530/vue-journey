@@ -154,7 +154,7 @@ function goCollect() {
 
 .action-sheet__close {
   position: absolute;
-  bottom: calc(56px + env(safe-area-inset-bottom));
+  bottom: calc(72px + env(safe-area-inset-bottom));
   left: 50%;
   display: flex;
   align-items: center;
