@@ -111,7 +111,7 @@ export const useTripStore = defineStore('trip', {
   },
 
   persist: {
-    key: 'vue-journey-trips',
+    key: 'tuhui-trips',
     pick: ['trips', 'nextId'],
   },
 })

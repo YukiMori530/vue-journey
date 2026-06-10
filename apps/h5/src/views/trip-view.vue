@@ -15,8 +15,8 @@ function openTrip(id: number) {
   <div class="trip-page">
     <header class="trip-header">
       <div class="brand">
-        <img class="brand-logo" src="/app-logo.svg" alt="圆周旅迹" />
-        <span class="brand-name">圆周旅迹</span>
+        <img class="brand-logo" src="/app-logo.svg" alt="途绘" />
+        <span class="brand-name">途绘</span>
       </div>
       <div class="header-actions">
         <van-icon name="search" size="22" color="#323233" />
