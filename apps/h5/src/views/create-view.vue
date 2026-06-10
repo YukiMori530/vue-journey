@@ -2,12 +2,16 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { showToast } from 'vant'
+import { useTripStore } from '../stores/trip'
 
 const router = useRouter()
+const tripStore = useTripStore()
+
 const destination = ref('')
 const days = ref('')
 const preferences = ['美食', '摄影', '自然风光', '人文历史']
 const selectedPrefs = ref<string[]>([])
+const submitting = ref(false)
 
 function togglePref(item: string) {
   const index = selectedPrefs.value.indexOf(item)
@@ -19,16 +23,28 @@ function togglePref(item: string) {
 }
 
 function handleSubmit() {
-  if (!destination.value.trim()) {
+  const city = destination.value.trim()
+  const dayCount = Number(days.value)
+
+  if (!city) {
     showToast('请输入目的地')
     return
   }
-  if (!days.value.trim()) {
-    showToast('请输入天数')
+  if (!days.value.trim() || dayCount < 1) {
+    showToast('请输入有效天数')
     return
   }
-  showToast('行程创建成功（后续接入 AI）')
-  router.push('/')
+
+  submitting.value = true
+  const trip = tripStore.addTrip({
+    destination: city,
+    days: dayCount,
+    preferences: [...selectedPrefs.value],
+  })
+  submitting.value = false
+
+  showToast('行程已生成')
+  router.push(`/trip/${trip.id}`)
 }
 
 function goBack() {
@@ -75,9 +91,18 @@ function goBack() {
         </button>
       </div>
 
-      <van-button type="primary" block round class="submit-btn" @click="handleSubmit">
+      <van-button
+        type="primary"
+        block
+        round
+        class="submit-btn"
+        :loading="submitting"
+        @click="handleSubmit"
+      >
         生成行程
       </van-button>
+
+      <p class="create-tip">当前为模拟生成，后续接入 DeepSeek AI</p>
     </div>
   </div>
 </template>
@@ -154,5 +179,12 @@ function goBack() {
 
 .submit-btn {
   margin: 32px 16px 0;
+}
+
+.create-tip {
+  margin: 16px 0 0;
+  font-size: 12px;
+  color: #969799;
+  text-align: center;
 }
 </style>

@@ -1,25 +1,14 @@
 <script setup lang="ts">
+import { useRouter } from 'vue-router'
 import TripCard from '../components/trip-card.vue'
-import type { TripCardData } from '../components/trip-card.vue'
+import { useTripStore } from '../stores/trip'
 
-const trips: TripCardData[] = [
-  {
-    id: 1,
-    title: '烟台三日海韵慢行',
-    nights: '3天2晚',
-    placeCount: 13,
-    cover: 'https://images.unsplash.com/photo-1514565131-fce0801e5785?w=400&q=80',
-    theme: 'linear-gradient(135deg, #d4ede8 0%, #c5e8e0 100%)',
-  },
-  {
-    id: 2,
-    title: '成都美食周末游',
-    nights: '2天1晚',
-    placeCount: 8,
-    cover: 'https://images.unsplash.com/photo-1590736969955-71cc94901144?w=400&q=80',
-    theme: 'linear-gradient(135deg, #fdebd3 0%, #f9dcc4 100%)',
-  },
-]
+const router = useRouter()
+const tripStore = useTripStore()
+
+function openTrip(id: number) {
+  router.push(`/trip/${id}`)
+}
 </script>
 
 <template>
@@ -48,7 +37,14 @@ const trips: TripCardData[] = [
         </button>
       </div>
 
-      <TripCard v-for="trip in trips" :key="trip.id" :trip="trip" />
+      <van-empty v-if="tripStore.trips.length === 0" description="还没有行程，点 + 创建一个吧" />
+
+      <TripCard
+        v-for="trip in tripStore.trips"
+        :key="trip.id"
+        :trip="trip"
+        @click="openTrip(trip.id)"
+      />
     </section>
   </div>
 </template>

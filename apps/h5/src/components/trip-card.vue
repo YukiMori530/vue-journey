@@ -1,20 +1,17 @@
 <script setup lang="ts">
-export interface TripCardData {
-  id: number
-  title: string
-  nights: string
-  placeCount: number
-  cover: string
-  theme: string
-}
+import type { Trip } from '../types/trip'
 
 defineProps<{
-  trip: TripCardData
+  trip: Trip
+}>()
+
+const emit = defineEmits<{
+  click: []
 }>()
 </script>
 
 <template>
-  <article class="trip-card" :style="{ background: trip.theme }">
+  <article class="trip-card" :style="{ background: trip.theme }" @click="emit('click')">
     <div class="trip-card__info">
       <h3 class="trip-card__title">{{ trip.title }}</h3>
       <p class="trip-card__meta">
@@ -28,7 +25,7 @@ defineProps<{
           src="https://api.dicebear.com/7.x/avataaars/svg?seed=user1"
           alt="成员"
         />
-        <button type="button" class="member-add" aria-label="邀请同行">
+        <button type="button" class="member-add" aria-label="邀请同行" @click.stop>
           <van-icon name="plus" size="14" />
         </button>
       </div>
@@ -46,6 +43,11 @@ defineProps<{
   margin-bottom: 16px;
   overflow: hidden;
   border-radius: 20px;
+  cursor: pointer;
+}
+
+.trip-card:active {
+  opacity: 0.92;
 }
 
 .trip-card__info {
