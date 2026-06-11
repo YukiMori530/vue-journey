@@ -1,0 +1,23 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Trip {
+  id          Int      @id @default(autoincrement())
+  destination String
+  days        Int
+  preferences Json     @default("[]")
+  title       String
+  nights      String
+  placeCount  Int
+  cover       String
+  theme       String
+  dayPlans    Json
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
