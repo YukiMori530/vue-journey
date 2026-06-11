@@ -34,7 +34,7 @@ export class TripsService {
   }
 
   async create(dto: CreateTripDto): Promise<TripResponse> {
-    const dayPlans = mockDayPlans(dto.destination, dto.days);
+    const dayPlans = dto.dayPlans ?? mockDayPlans(dto.destination, dto.days);
     const count = await this.prisma.trip.count();
 
     const trip = await this.prisma.trip.create({
@@ -42,11 +42,12 @@ export class TripsService {
         destination: dto.destination,
         days: dto.days,
         preferences: dto.preferences,
-        title: buildTitle(dto.destination, dto.days, dto.preferences),
-        nights: formatNights(dto.days),
-        placeCount: countPlaces(dayPlans),
-        cover: pickCover(count),
-        theme: pickTheme(count),
+        title:
+          dto.title ?? buildTitle(dto.destination, dto.days, dto.preferences),
+        nights: dto.nights ?? formatNights(dto.days),
+        placeCount: dto.placeCount ?? countPlaces(dayPlans),
+        cover: dto.cover ?? pickCover(count),
+        theme: dto.theme ?? pickTheme(count),
         dayPlans: dayPlans as unknown as Prisma.InputJsonValue,
       },
     });

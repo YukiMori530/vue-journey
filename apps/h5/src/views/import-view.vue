@@ -3,6 +3,7 @@ import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { showToast } from 'vant'
 import { useTripStore } from '../stores/trip'
+import { ApiError } from '../api/client'
 
 const router = useRouter()
 const tripStore = useTripStore()
@@ -32,18 +33,23 @@ function goBack() {
   router.back()
 }
 
-function handleImport() {
+async function handleImport() {
   if (!guideText.value.trim()) {
     showToast('请粘贴攻略文本')
     return
   }
 
   loading.value = true
-  const trip = tripStore.addTripFromText(guideText.value)
-  loading.value = false
-
-  showToast('导入成功')
-  router.push(`/trip/${trip.id}`)
+  try {
+    const trip = await tripStore.addTripFromText(guideText.value)
+    showToast('导入成功')
+    router.push(`/trip/${trip.id}`)
+  } catch (error) {
+    const message = error instanceof ApiError ? error.message : '导入失败，请确认后端已启动'
+    showToast(message)
+  } finally {
+    loading.value = false
+  }
 }
 </script>
 
@@ -59,7 +65,7 @@ function handleImport() {
 
     <div class="import-body">
       <p class="import-desc">
-        粘贴小红书、公众号等攻略文字，自动识别「第几天」和地点（当前为本地解析，后续接 AI）。
+        粘贴小红书、公众号等攻略文字，自动识别「第几天」和地点（由后端解析保存）。
       </p>
 
       <van-field

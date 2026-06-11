@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { showConfirmDialog, showToast } from 'vant'
 import { filterDiscover } from '../data/discover'
 import { useTripStore } from '../stores/trip'
+import { ApiError } from '../api/client'
 import type { FeaturedTopic, HotTrip } from '../data/discover'
 
 const router = useRouter()
@@ -25,11 +26,13 @@ async function openHotTrip(item: HotTrip) {
       title: '添加热门行程',
       message: `将「${item.title}」加入我的计划？`,
     })
-    const trip = tripStore.addTripFromHotTrip(item)
+    const trip = await tripStore.addTripFromHotTrip(item)
     showToast('已添加到我的计划')
     router.push(`/trip/${trip.id}`)
-  } catch {
-    // 用户取消
+  } catch (error) {
+    if (error instanceof ApiError) {
+      showToast(error.message)
+    }
   }
 }
 
@@ -39,11 +42,13 @@ async function openTopic(item: FeaturedTopic) {
       title: '添加精选专题',
       message: `根据专题「${item.title}」生成探索行程？`,
     })
-    const trip = tripStore.addTripFromTopic(item)
+    const trip = await tripStore.addTripFromTopic(item)
     showToast('专题行程已生成')
     router.push(`/trip/${trip.id}`)
-  } catch {
-    // 用户取消
+  } catch (error) {
+    if (error instanceof ApiError) {
+      showToast(error.message)
+    }
   }
 }
 

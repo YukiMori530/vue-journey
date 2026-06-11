@@ -1,20 +1,14 @@
 import { defineStore } from 'pinia'
+import * as tripsApi from '../api/trips'
 import type { HotTrip, FeaturedTopic } from '../data/discover'
 import type { CreateTripInput, DayPlan, Trip } from '../types/trip'
-import { parseDaysFromDuration, parseGuideText } from '../utils/parse-guide'
+import { parseDaysFromDuration } from '../utils/parse-guide'
 
 const THEMES = [
   'linear-gradient(135deg, #d4ede8 0%, #c5e8e0 100%)',
   'linear-gradient(135deg, #fdebd3 0%, #f9dcc4 100%)',
   'linear-gradient(135deg, #e8eef9 0%, #d6e4ff 100%)',
   'linear-gradient(135deg, #f3e8ff 0%, #e9d5ff 100%)',
-]
-
-const COVERS = [
-  'https://images.unsplash.com/photo-1514565131-fce0801e5785?w=400&q=80',
-  'https://images.unsplash.com/photo-1590736969955-71cc94901144?w=400&q=80',
-  'https://images.unsplash.com/photo-1508804185872-d83badad00f2?w=400&q=80',
-  'https://images.unsplash.com/photo-1547981609-4c6a41de1593?w=400&q=80',
 ]
 
 const PLACE_TEMPLATES = [
@@ -40,49 +34,20 @@ function mockDayPlans(destination: string, days: number): DayPlan[] {
   })
 }
 
-function buildTitle(destination: string, days: number, preferences: string[]) {
-  const pref = preferences[0]
-  if (pref) {
-    return `${destination}${days}日${pref}之旅`
+function upsertTrip(trips: Trip[], trip: Trip) {
+  const index = trips.findIndex((item) => item.id === trip.id)
+  if (index >= 0) {
+    trips[index] = trip
+    return
   }
-  return `${destination}${days}日游`
+  trips.unshift(trip)
 }
-
-function countPlaces(dayPlans: DayPlan[]) {
-  return dayPlans.reduce((sum, day) => sum + day.places.length, 0)
-}
-
-const seedTrips: Trip[] = [
-  {
-    id: 1,
-    destination: '烟台',
-    days: 3,
-    preferences: ['自然风光'],
-    title: '烟台三日海韵慢行',
-    nights: '3天2晚',
-    placeCount: 13,
-    cover: COVERS[0],
-    theme: THEMES[0],
-    dayPlans: mockDayPlans('烟台', 3),
-  },
-  {
-    id: 2,
-    destination: '成都',
-    days: 2,
-    preferences: ['美食'],
-    title: '成都美食周末游',
-    nights: '2天1晚',
-    placeCount: 8,
-    cover: COVERS[1],
-    theme: THEMES[1],
-    dayPlans: mockDayPlans('成都', 2),
-  },
-]
 
 export const useTripStore = defineStore('trip', {
   state: () => ({
-    trips: seedTrips as Trip[],
-    nextId: 3,
+    trips: [] as Trip[],
+    loading: false,
+    loaded: false,
   }),
 
   getters: {
@@ -92,44 +57,40 @@ export const useTripStore = defineStore('trip', {
   },
 
   actions: {
-    saveTrip(payload: Omit<Trip, 'id'>) {
-      const trip: Trip = { ...payload, id: this.nextId++ }
-      this.trips.unshift(trip)
+    async fetchTrips() {
+      this.loading = true
+      try {
+        this.trips = await tripsApi.fetchTrips()
+        this.loaded = true
+      } finally {
+        this.loading = false
+      }
+    },
+
+    async fetchTripById(id: number) {
+      const existing = this.tripById(id)
+      if (existing) {
+        return existing
+      }
+
+      const trip = await tripsApi.fetchTrip(id)
+      upsertTrip(this.trips, trip)
       return trip
     },
 
-    addTrip(input: CreateTripInput) {
-      const dayPlans = mockDayPlans(input.destination, input.days)
-      return this.saveTrip({
-        destination: input.destination,
-        days: input.days,
-        preferences: input.preferences,
-        title: buildTitle(input.destination, input.days, input.preferences),
-        nights: `${input.days}天${Math.max(input.days - 1, 0)}晚`,
-        placeCount: countPlaces(dayPlans),
-        cover: COVERS[this.nextId % COVERS.length],
-        theme: THEMES[this.nextId % THEMES.length],
-        dayPlans,
-      })
+    async addTrip(input: CreateTripInput) {
+      const trip = await tripsApi.createTrip(input)
+      upsertTrip(this.trips, trip)
+      return trip
     },
 
-    addTripFromText(text: string) {
-      const parsed = parseGuideText(text)
-      const placeCount = countPlaces(parsed.dayPlans)
-      return this.saveTrip({
-        destination: parsed.destination,
-        days: parsed.days,
-        preferences: [],
-        title: `${parsed.destination}${parsed.days}日导入行程`,
-        nights: `${parsed.days}天${Math.max(parsed.days - 1, 0)}晚`,
-        placeCount,
-        cover: COVERS[(this.nextId + 1) % COVERS.length],
-        theme: THEMES[(this.nextId + 1) % THEMES.length],
-        dayPlans: parsed.dayPlans,
-      })
+    async addTripFromText(text: string) {
+      const trip = await tripsApi.importTrip(text)
+      upsertTrip(this.trips, trip)
+      return trip
     },
 
-    addTripFromHotTrip(item: HotTrip) {
+    async addTripFromHotTrip(item: HotTrip) {
       const days = parseDaysFromDuration(item.duration)
       const destination = item.keywords[0] ?? '热门'
       const dayPlans = mockDayPlans(destination, days).map((day, index) => ({
@@ -140,7 +101,7 @@ export const useTripStore = defineStore('trip', {
         }),
       }))
 
-      return this.saveTrip({
+      const trip = await tripsApi.createTrip({
         destination,
         days,
         preferences: item.keywords.slice(1, 3),
@@ -148,17 +109,19 @@ export const useTripStore = defineStore('trip', {
         nights: item.duration.replace(/\s*·.*/, '').trim(),
         placeCount: item.placeCount,
         cover: item.cover,
-        theme: THEMES[this.nextId % THEMES.length],
+        theme: THEMES[item.id % THEMES.length],
         dayPlans,
       })
+      upsertTrip(this.trips, trip)
+      return trip
     },
 
-    addTripFromTopic(item: FeaturedTopic) {
+    async addTripFromTopic(item: FeaturedTopic) {
       const days = Math.max(1, Math.min(3, Math.ceil(item.placeCount / 4)))
       const destination = item.keywords[0] ?? '专题'
       const dayPlans = mockDayPlans(destination, days)
 
-      return this.saveTrip({
+      const trip = await tripsApi.createTrip({
         destination,
         days,
         preferences: item.keywords,
@@ -166,18 +129,16 @@ export const useTripStore = defineStore('trip', {
         nights: `${days}天${Math.max(days - 1, 0)}晚`,
         placeCount: item.placeCount,
         cover: item.cover,
-        theme: THEMES[(this.nextId + 2) % THEMES.length],
+        theme: THEMES[(item.id + 2) % THEMES.length],
         dayPlans,
       })
+      upsertTrip(this.trips, trip)
+      return trip
     },
 
-    removeTrip(id: number) {
+    async removeTrip(id: number) {
+      await tripsApi.deleteTrip(id)
       this.trips = this.trips.filter((trip) => trip.id !== id)
     },
-  },
-
-  persist: {
-    key: 'tuhui-trips',
-    pick: ['trips', 'nextId'],
   },
 })

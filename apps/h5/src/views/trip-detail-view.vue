@@ -1,15 +1,33 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { showConfirmDialog, showToast } from 'vant'
 import { useTripStore } from '../stores/trip'
+import { ApiError } from '../api/client'
 
 const route = useRoute()
 const router = useRouter()
 const tripStore = useTripStore()
+const detailLoading = ref(false)
 
 const tripId = computed(() => Number(route.params.id))
 const trip = computed(() => tripStore.tripById(tripId.value))
+
+onMounted(async () => {
+  if (trip.value || Number.isNaN(tripId.value)) {
+    return
+  }
+
+  detailLoading.value = true
+  try {
+    await tripStore.fetchTripById(tripId.value)
+  } catch (error) {
+    const message = error instanceof ApiError ? error.message : '加载行程失败'
+    showToast(message)
+  } finally {
+    detailLoading.value = false
+  }
+})
 
 function goBack() {
   router.push('/')
@@ -24,17 +42,23 @@ async function handleDelete() {
       title: '删除行程',
       message: `确定删除「${trip.value.title}」吗？`,
     })
-    tripStore.removeTrip(trip.value.id)
+    await tripStore.removeTrip(trip.value.id)
     showToast('已删除')
     router.push('/')
-  } catch {
-    // 用户取消
+  } catch (error) {
+    if (error instanceof ApiError) {
+      showToast(error.message)
+    }
   }
 }
 </script>
 
 <template>
-  <div v-if="trip" class="detail-page">
+  <van-loading v-if="detailLoading" class="page-loading" vertical>
+    加载中...
+  </van-loading>
+
+  <div v-else-if="trip" class="detail-page">
     <van-nav-bar title="行程详情" left-arrow fixed placeholder @click-left="goBack" />
 
     <div class="detail-hero" :style="{ background: trip.theme }">
@@ -82,6 +106,12 @@ async function handleDelete() {
   min-height: 100vh;
   padding-bottom: 32px;
   background: #f5f6f7;
+}
+
+.page-loading {
+  display: flex;
+  justify-content: center;
+  padding: 120px 0;
 }
 
 .detail-hero {

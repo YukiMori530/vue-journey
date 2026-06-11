@@ -3,6 +3,7 @@ import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { showToast } from 'vant'
 import { useTripStore } from '../stores/trip'
+import { ApiError } from '../api/client'
 
 const router = useRouter()
 const tripStore = useTripStore()
@@ -22,7 +23,7 @@ function togglePref(item: string) {
   }
 }
 
-function handleSubmit() {
+async function handleSubmit() {
   const city = destination.value.trim()
   const dayCount = Number(days.value)
 
@@ -36,15 +37,20 @@ function handleSubmit() {
   }
 
   submitting.value = true
-  const trip = tripStore.addTrip({
-    destination: city,
-    days: dayCount,
-    preferences: [...selectedPrefs.value],
-  })
-  submitting.value = false
-
-  showToast('行程已生成')
-  router.push(`/trip/${trip.id}`)
+  try {
+    const trip = await tripStore.addTrip({
+      destination: city,
+      days: dayCount,
+      preferences: [...selectedPrefs.value],
+    })
+    showToast('行程已生成')
+    router.push(`/trip/${trip.id}`)
+  } catch (error) {
+    const message = error instanceof ApiError ? error.message : '创建失败，请确认后端已启动'
+    showToast(message)
+  } finally {
+    submitting.value = false
+  }
 }
 
 function goBack() {
@@ -102,7 +108,7 @@ function goBack() {
         生成行程
       </van-button>
 
-      <p class="create-tip">当前为模拟生成，后续接入 DeepSeek AI</p>
+      <p class="create-tip">行程已保存到后端，后续接入 DeepSeek AI 智能规划</p>
     </div>
   </div>
 </template>

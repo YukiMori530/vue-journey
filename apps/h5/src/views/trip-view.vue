@@ -1,11 +1,24 @@
 <script setup lang="ts">
+import { onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { showToast } from 'vant'
 import TripCard from '../components/trip-card.vue'
 import AppHeader from '../components/app-header.vue'
 import { useTripStore } from '../stores/trip'
+import { ApiError } from '../api/client'
 
 const router = useRouter()
 const tripStore = useTripStore()
+
+onMounted(async () => {
+  try {
+    await tripStore.fetchTrips()
+  } catch (error) {
+    const message =
+      error instanceof ApiError ? error.message : '加载行程失败，请确认后端已启动'
+    showToast(message)
+  }
+})
 
 function openTrip(id: number) {
   router.push(`/trip/${id}`)
@@ -25,14 +38,23 @@ function openTrip(id: number) {
         </button>
       </div>
 
-      <van-empty v-if="tripStore.trips.length === 0" description="还没有行程，点 + 创建一个吧" />
+      <van-loading v-if="tripStore.loading" class="page-loading" vertical>
+        加载中...
+      </van-loading>
 
-      <TripCard
-        v-for="trip in tripStore.trips"
-        :key="trip.id"
-        :trip="trip"
-        @click="openTrip(trip.id)"
+      <van-empty
+        v-else-if="tripStore.trips.length === 0"
+        description="还没有行程，点 + 创建一个吧"
       />
+
+      <template v-else>
+        <TripCard
+          v-for="trip in tripStore.trips"
+          :key="trip.id"
+          :trip="trip"
+          @click="openTrip(trip.id)"
+        />
+      </template>
     </section>
   </div>
 </template>
@@ -70,5 +92,11 @@ function openTrip(id: number) {
   color: #646566;
   box-shadow: 0 1px 4px rgb(0 0 0 / 6%);
   cursor: pointer;
+}
+
+.page-loading {
+  display: flex;
+  justify-content: center;
+  padding: 48px 0;
 }
 </style>
