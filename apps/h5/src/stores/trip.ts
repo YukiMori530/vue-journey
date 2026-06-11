@@ -1,4 +1,5 @@
 import { defineStore } from 'pinia'
+import * as aiApi from '../api/ai'
 import * as tripsApi from '../api/trips'
 import type { HotTrip, FeaturedTopic } from '../data/discover'
 import type { CreateTripInput, DayPlan, Trip } from '../types/trip'
@@ -79,13 +80,13 @@ export const useTripStore = defineStore('trip', {
     },
 
     async addTrip(input: CreateTripInput) {
-      const trip = await tripsApi.createTrip(input)
+      const trip = await aiApi.planTrip(input)
       upsertTrip(this.trips, trip)
       return trip
     },
 
     async addTripFromText(text: string) {
-      const trip = await tripsApi.importTrip(text)
+      const trip = await aiApi.importGuide(text)
       upsertTrip(this.trips, trip)
       return trip
     },

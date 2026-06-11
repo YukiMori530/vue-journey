@@ -43,7 +43,7 @@ async function handleSubmit() {
       days: dayCount,
       preferences: [...selectedPrefs.value],
     })
-    showToast('行程已生成')
+    showToast('AI 行程已生成')
     router.push(`/trip/${trip.id}`)
   } catch (error) {
     const message = error instanceof ApiError ? error.message : '创建失败，请确认后端已启动'
@@ -105,10 +105,10 @@ function goBack() {
         :loading="submitting"
         @click="handleSubmit"
       >
-        生成行程
+        AI 智能生成行程
       </van-button>
 
-      <p class="create-tip">行程已保存到后端，后续接入 DeepSeek AI 智能规划</p>
+      <p class="create-tip">由 DeepSeek 智能规划并保存；未配置 API Key 时自动使用本地 mock</p>
     </div>
   </div>
 </template>

@@ -92,7 +92,7 @@ async function handleDelete() {
       <van-button type="danger" block round plain @click="handleDelete">
         删除行程
       </van-button>
-      <p class="detail-tip">后续接入 DeepSeek，AI 自动生成每日路线</p>
+      <p class="detail-tip">行程由 DeepSeek AI 智能规划生成</p>
     </div>
   </div>
 

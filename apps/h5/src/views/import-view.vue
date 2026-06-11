@@ -65,7 +65,7 @@ async function handleImport() {
 
     <div class="import-body">
       <p class="import-desc">
-        粘贴小红书、公众号等攻略文字，自动识别「第几天」和地点（由后端解析保存）。
+        粘贴小红书、公众号等攻略文字，DeepSeek 智能识别「第几天」和地点并保存。
       </p>
 
       <van-field
