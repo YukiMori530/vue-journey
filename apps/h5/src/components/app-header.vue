@@ -1,10 +1,37 @@
 <script setup lang="ts">
+import { ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { showConfirmDialog, showToast } from 'vant'
+import { useAuthStore } from '../stores/auth'
 
 const router = useRouter()
+const authStore = useAuthStore()
+const showProfile = ref(false)
 
 function openSearch() {
   router.push('/search')
+}
+
+function openProfile() {
+  if (!authStore.isLoggedIn) {
+    router.push('/login')
+    return
+  }
+  showProfile.value = true
+}
+
+async function handleLogout() {
+  try {
+    await showConfirmDialog({
+      title: '退出登录',
+      message: `确定退出 ${authStore.displayName} 吗？`,
+    })
+    authStore.logout()
+    showToast('已退出登录')
+    router.push('/login')
+  } catch {
+    // 用户取消
+  }
 }
 </script>
 
@@ -19,12 +46,22 @@ function openSearch() {
       <button type="button" class="icon-btn" aria-label="搜索" @click="openSearch">
         <van-icon name="search" size="24" />
       </button>
-      <img
-        class="user-avatar"
-        src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&q=80"
-        alt="头像"
-      />
+      <button type="button" class="avatar-btn" aria-label="账户" @click="openProfile">
+        <span v-if="authStore.isLoggedIn" class="avatar-text">
+          {{ authStore.displayName.slice(0, 1) }}
+        </span>
+        <van-icon v-else name="user-o" size="20" />
+      </button>
     </div>
+
+    <van-action-sheet
+      v-model:show="showProfile"
+      :actions="[{ name: '退出登录', color: '#ee0a24' }]"
+      cancel-text="取消"
+      :description="`${authStore.displayName}（${authStore.user?.email}）`"
+      close-on-click-action
+      @select="handleLogout"
+    />
   </header>
 </template>
 
@@ -61,7 +98,8 @@ function openSearch() {
   align-items: center;
 }
 
-.icon-btn {
+.icon-btn,
+.avatar-btn {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -75,16 +113,20 @@ function openSearch() {
   -webkit-tap-highlight-color: transparent;
 }
 
-.icon-btn:active {
+.icon-btn:active,
+.avatar-btn:active {
   background: #f2f3f5;
 }
 
-.user-avatar {
-  width: 38px;
-  height: 38px;
+.avatar-btn {
   border: 2px solid #fff;
-  border-radius: 50%;
-  object-fit: cover;
+  background: #1989fa;
+  color: #fff;
   box-shadow: 0 2px 8px rgb(0 0 0 / 10%);
+}
+
+.avatar-text {
+  font-size: 15px;
+  font-weight: 700;
 }
 </style>

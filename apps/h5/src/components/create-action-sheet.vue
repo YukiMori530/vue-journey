@@ -1,22 +1,31 @@
 <script setup lang="ts">
 import { useRouter } from 'vue-router'
 import { showToast } from 'vant'
+import { useAuthStore } from '../stores/auth'
 
 const show = defineModel<boolean>('show', { default: false })
 const router = useRouter()
+const authStore = useAuthStore()
 
 function close() {
   show.value = false
 }
 
-function goCreatePlan() {
+function requireAuth(path: string) {
   close()
-  router.push('/create')
+  if (!authStore.isLoggedIn) {
+    router.push({ path: '/login', query: { redirect: path } })
+    return
+  }
+  router.push(path)
+}
+
+function goCreatePlan() {
+  requireAuth('/create')
 }
 
 function goSmartImport() {
-  close()
-  router.push('/import')
+  requireAuth('/import')
 }
 
 function goCollect() {

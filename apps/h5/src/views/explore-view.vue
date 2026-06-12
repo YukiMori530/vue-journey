@@ -2,7 +2,7 @@
 import { computed, onMounted, onUnmounted, ref, shallowRef } from 'vue'
 import { useRouter } from 'vue-router'
 import { showToast } from 'vant'
-import { DEFAULT_CENTER, explorePois, type ExplorePoi, type PoiCategory } from '../data/explore-pois'
+import { exploreCities, getCityById, type ExplorePoi, type PoiCategory } from '../data/explore-pois'
 import { loadAMap } from '../utils/amap'
 
 const router = useRouter()
@@ -13,6 +13,15 @@ const markerInstances = shallowRef<AMap.Marker[]>([])
 const mapLoading = ref(true)
 const mapError = ref('')
 const selectedCategory = ref<PoiCategory | null>(null)
+const currentCityId = ref(exploreCities[0].id)
+const showCityPicker = ref(false)
+
+const currentCity = computed(() => getCityById(currentCityId.value))
+
+const cityActions = exploreCities.map((city) => ({
+  name: city.name,
+  id: city.id,
+}))
 
 const categories: Array<{ icon: string; label: PoiCategory }> = [
   { icon: '🌳', label: '景点' },
@@ -38,11 +47,39 @@ const collections = [
 ]
 
 const visiblePois = computed(() => {
+  const pois = currentCity.value.pois
   if (!selectedCategory.value) {
-    return explorePois
+    return pois
   }
-  return explorePois.filter((poi) => poi.category === selectedCategory.value)
+  return pois.filter((poi) => poi.category === selectedCategory.value)
 })
+
+function switchCity(cityId: string) {
+  if (cityId === currentCityId.value) {
+    return
+  }
+
+  currentCityId.value = cityId
+  selectedCategory.value = null
+
+  const map = mapInstance.value
+  if (map) {
+    map.setCenter(currentCity.value.center)
+    renderMarkers()
+  }
+}
+
+function onCitySelect(action: { name: string }) {
+  const city = exploreCities.find((item) => item.name === action.name)
+  if (city) {
+    switchCity(city.id)
+    showToast(`已切换到${city.name}`)
+  }
+}
+
+function openCityPicker() {
+  showCityPicker.value = true
+}
 
 function openSearch() {
   router.push('/search')
@@ -101,7 +138,7 @@ async function initMap() {
 
     const map = new AMap.Map(mapContainer.value, {
       zoom: 12,
-      center: DEFAULT_CENTER,
+      center: currentCity.value.center,
       viewMode: '2D',
       mapStyle: 'amap://styles/normal',
     })
@@ -135,12 +172,12 @@ function handleMyLocation() {
         showToast('已定位到当前位置')
         return
       }
-      map.setCenter(DEFAULT_CENTER)
-      showToast('定位失败，已回到北京市中心')
+      map.setCenter(currentCity.value.center)
+      showToast(`定位失败，已回到${currentCity.value.name}`)
     },
     () => {
-      map.setCenter(DEFAULT_CENTER)
-      showToast('定位失败，已回到北京市中心')
+      map.setCenter(currentCity.value.center)
+      showToast(`定位失败，已回到${currentCity.value.name}`)
     },
   )
 }
@@ -170,13 +207,13 @@ onUnmounted(() => {
       </div>
 
       <header class="explore-header">
-        <div class="city-info">
+        <button type="button" class="city-info" @click="openCityPicker">
           <div class="city-row">
-            <span class="city-name">北京市</span>
+            <span class="city-name">{{ currentCity.name }}</span>
             <van-icon name="arrow-down" size="12" />
           </div>
-          <p class="weather">⛈ 雷暴 16° - 27°</p>
-        </div>
+          <p class="weather">{{ currentCity.weather }}</p>
+        </button>
         <div class="header-actions">
           <button type="button" class="icon-btn" aria-label="搜索" @click="openSearch">
             <van-icon name="search" size="24" />
@@ -217,6 +254,15 @@ onUnmounted(() => {
         </div>
       </div>
     </section>
+
+    <van-action-sheet
+      v-model:show="showCityPicker"
+      :actions="cityActions"
+      cancel-text="取消"
+      description="选择探索城市"
+      close-on-click-action
+      @select="onCitySelect"
+    />
   </div>
 </template>
 
@@ -273,6 +319,14 @@ onUnmounted(() => {
 
 .explore-header > * {
   pointer-events: auto;
+}
+
+.city-info {
+  padding: 0;
+  border: none;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
 }
 
 .city-name {

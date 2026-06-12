@@ -5,17 +5,37 @@ import CreateView from '../views/create-view.vue'
 import TripDetailView from '../views/trip-detail-view.vue'
 import SearchView from '../views/search-view.vue'
 import ImportView from '../views/import-view.vue'
+import LoginView from '../views/login-view.vue'
+import { useAuthStore } from '../stores/auth'
 
 const router = createRouter({
   history: createWebHistory(),
   routes: [
-    { path: '/', name: 'trip', component: TripView },
+    { path: '/', name: 'trip', component: TripView, meta: { requiresAuth: true } },
     { path: '/explore', name: 'explore', component: ExploreView },
-    { path: '/search', name: 'search', component: SearchView, meta: { hideTabBar: true } },
-    { path: '/import', name: 'import', component: ImportView, meta: { hideTabBar: true } },
-    { path: '/create', name: 'create', component: CreateView, meta: { hideTabBar: true } },
-    { path: '/trip/:id', name: 'trip-detail', component: TripDetailView, meta: { hideTabBar: true } },
+    { path: '/login', name: 'login', component: LoginView, meta: { hideTabBar: true, guestOnly: true } },
+    { path: '/search', name: 'search', component: SearchView, meta: { hideTabBar: true, requiresAuth: true } },
+    { path: '/import', name: 'import', component: ImportView, meta: { hideTabBar: true, requiresAuth: true } },
+    { path: '/create', name: 'create', component: CreateView, meta: { hideTabBar: true, requiresAuth: true } },
+    { path: '/trip/:id', name: 'trip-detail', component: TripDetailView, meta: { hideTabBar: true, requiresAuth: true } },
   ],
+})
+
+router.beforeEach((to) => {
+  const authStore = useAuthStore()
+
+  if (to.meta.requiresAuth && !authStore.isLoggedIn) {
+    return {
+      path: '/login',
+      query: { redirect: to.fullPath },
+    }
+  }
+
+  if (to.meta.guestOnly && authStore.isLoggedIn) {
+    return '/'
+  }
+
+  return true
 })
 
 export default router

@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { Prisma, type Trip } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateTripDto } from './dto/create-trip.dto';
@@ -18,27 +22,26 @@ import type { DayPlan, TripResponse } from './trip.types';
 export class TripsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async findAll(): Promise<TripResponse[]> {
+  async findAll(userId: number): Promise<TripResponse[]> {
     const trips = await this.prisma.trip.findMany({
+      where: { userId },
       orderBy: { createdAt: 'desc' },
     });
     return trips.map((trip) => this.toResponse(trip));
   }
 
-  async findOne(id: number): Promise<TripResponse> {
-    const trip = await this.prisma.trip.findUnique({ where: { id } });
-    if (!trip) {
-      throw new NotFoundException(`行程 ${id} 不存在`);
-    }
+  async findOne(id: number, userId: number): Promise<TripResponse> {
+    const trip = await this.getOwnedTrip(id, userId);
     return this.toResponse(trip);
   }
 
-  async create(dto: CreateTripDto): Promise<TripResponse> {
+  async create(dto: CreateTripDto, userId: number): Promise<TripResponse> {
     const dayPlans = dto.dayPlans ?? mockDayPlans(dto.destination, dto.days);
-    const count = await this.prisma.trip.count();
+    const count = await this.prisma.trip.count({ where: { userId } });
 
     const trip = await this.prisma.trip.create({
       data: {
+        userId,
         destination: dto.destination,
         days: dto.days,
         preferences: dto.preferences,
@@ -55,12 +58,16 @@ export class TripsService {
     return this.toResponse(trip);
   }
 
-  async importFromText(dto: ImportTripDto): Promise<TripResponse> {
+  async importFromText(
+    dto: ImportTripDto,
+    userId: number,
+  ): Promise<TripResponse> {
     const parsed = parseGuideText(dto.text);
-    const count = await this.prisma.trip.count();
+    const count = await this.prisma.trip.count({ where: { userId } });
 
     const trip = await this.prisma.trip.create({
       data: {
+        userId,
         destination: parsed.destination,
         days: parsed.days,
         preferences: [],
@@ -76,14 +83,21 @@ export class TripsService {
     return this.toResponse(trip);
   }
 
-  async remove(id: number): Promise<TripResponse> {
-    const existing = await this.prisma.trip.findUnique({ where: { id } });
-    if (!existing) {
+  async remove(id: number, userId: number): Promise<TripResponse> {
+    const existing = await this.getOwnedTrip(id, userId);
+    const trip = await this.prisma.trip.delete({ where: { id: existing.id } });
+    return this.toResponse(trip);
+  }
+
+  private async getOwnedTrip(id: number, userId: number): Promise<Trip> {
+    const trip = await this.prisma.trip.findUnique({ where: { id } });
+    if (!trip) {
       throw new NotFoundException(`行程 ${id} 不存在`);
     }
-
-    const trip = await this.prisma.trip.delete({ where: { id } });
-    return this.toResponse(trip);
+    if (trip.userId !== userId) {
+      throw new ForbiddenException('无权访问该行程');
+    }
+    return trip;
   }
 
   private toResponse(trip: Trip): TripResponse {

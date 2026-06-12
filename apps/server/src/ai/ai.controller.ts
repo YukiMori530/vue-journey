@@ -1,13 +1,17 @@
-import { Body, Controller, Post } from '@nestjs/common';
+import { Body, Controller, Post, UseGuards } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { parseGuideText } from '../trips/parse-guide';
 import { TripsService } from '../trips/trips.service';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import type { AuthUser } from '../auth/auth.types';
 import { AiOrchestratorService } from './ai-orchestrator.service';
 import { ParseGuideDto } from './dto/parse-guide.dto';
 import { PlanItineraryDto } from './dto/plan-itinerary.dto';
 import { itineraryToCreateTripDto } from './itinerary.mapper';
 
 @Controller('ai')
+@UseGuards(JwtAuthGuard)
 export class AiController {
   constructor(
     private readonly aiOrchestrator: AiOrchestratorService,
@@ -16,19 +20,22 @@ export class AiController {
   ) {}
 
   @Post('plan')
-  async plan(@Body() dto: PlanItineraryDto) {
+  async plan(@CurrentUser() user: AuthUser, @Body() dto: PlanItineraryDto) {
     const itinerary = await this.aiOrchestrator.planItinerary(dto);
-    const count = await this.prisma.trip.count();
+    const count = await this.prisma.trip.count({ where: { userId: user.id } });
     const createDto = itineraryToCreateTripDto(itinerary, dto, count);
-    const data = await this.tripsService.create(createDto);
+    const data = await this.tripsService.create(createDto, user.id);
     return { data, message: 'planned' };
   }
 
   @Post('import')
-  async importGuide(@Body() dto: ParseGuideDto) {
+  async importGuide(
+    @CurrentUser() user: AuthUser,
+    @Body() dto: ParseGuideDto,
+  ) {
     const itinerary = await this.aiOrchestrator.parseGuideText(dto.text);
     const parsed = parseGuideText(dto.text);
-    const count = await this.prisma.trip.count();
+    const count = await this.prisma.trip.count({ where: { userId: user.id } });
     const createDto = itineraryToCreateTripDto(
       itinerary,
       {
@@ -38,7 +45,7 @@ export class AiController {
       },
       count + 1,
     );
-    const data = await this.tripsService.create(createDto);
+    const data = await this.tripsService.create(createDto, user.id);
     return { data, message: 'imported' };
   }
 }
