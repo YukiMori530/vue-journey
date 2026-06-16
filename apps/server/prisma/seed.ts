@@ -1,3 +1,4 @@
+import * as bcrypt from 'bcrypt';
 import { Prisma, PrismaClient } from '@prisma/client';
 import {
   countPlaces,
@@ -8,7 +9,10 @@ import {
 
 const prisma = new PrismaClient();
 
-/** 与前端 seedTrips 对齐的本地 mock 数据，仅写入本机 dev.db */
+const DEMO_EMAIL = 'demo@tuhui.com';
+const DEMO_PASSWORD = '123456';
+
+/** 演示账号 + mock 行程，仅用于本地 PostgreSQL */
 const seedTrips = [
   {
     destination: '烟台',
@@ -31,14 +35,29 @@ const seedTrips = [
 ];
 
 async function main() {
-  console.log('清空旧行程...');
-  await prisma.trip.deleteMany();
+  console.log('创建演示用户...');
+  const password = await bcrypt.hash(DEMO_PASSWORD, 10);
+  const user = await prisma.user.upsert({
+    where: { email: DEMO_EMAIL },
+    update: { nickname: '演示用户', password },
+    create: {
+      email: DEMO_EMAIL,
+      password,
+      nickname: '演示用户',
+    },
+  });
+
+  console.log(`演示账号：${DEMO_EMAIL} / ${DEMO_PASSWORD}`);
+
+  console.log('清空该用户旧行程...');
+  await prisma.trip.deleteMany({ where: { userId: user.id } });
 
   for (const item of seedTrips) {
     const dayPlans = mockDayPlans(item.destination, item.days);
 
     await prisma.trip.create({
       data: {
+        userId: user.id,
         destination: item.destination,
         days: item.days,
         preferences: item.preferences,

@@ -11,6 +11,11 @@ services:
       POSTGRES_DB: tuhui
     volumes:
       - tuhui_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U tuhui -d tuhui']
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
 volumes:
   tuhui_pg_data:
