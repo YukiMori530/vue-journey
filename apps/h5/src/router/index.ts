@@ -7,6 +7,12 @@ import SearchView from '../views/search-view.vue'
 import ImportView from '../views/import-view.vue'
 import LoginView from '../views/login-view.vue'
 import ProfileView from '../views/profile-view.vue'
+import ProfileAccountView from '../views/profile-account-view.vue'
+import ProfileEditView from '../views/profile-edit-view.vue'
+import ProfileTrashView from '../views/profile-trash-view.vue'
+import ProfileFeedbackView from '../views/profile-feedback-view.vue'
+import ProfileAboutView from '../views/profile-about-view.vue'
+import ProfileVersionView from '../views/profile-version-view.vue'
 import CollectView from '../views/collect-view.vue'
 import CollectCameraView from '../views/collect-camera-view.vue'
 import { useAuthStore } from '../stores/auth'
@@ -20,6 +26,12 @@ const router = createRouter({
     { path: '/search', name: 'search', component: SearchView, meta: { hideTabBar: true, requiresAuth: true } },
     { path: '/import', name: 'import', component: ImportView, meta: { hideTabBar: true, requiresAuth: true } },
     { path: '/profile', name: 'profile', component: ProfileView, meta: { hideTabBar: true, requiresAuth: true } },
+    { path: '/profile/account', name: 'profile-account', component: ProfileAccountView, meta: { hideTabBar: true, requiresAuth: true } },
+    { path: '/profile/edit', name: 'profile-edit', component: ProfileEditView, meta: { hideTabBar: true, requiresAuth: true } },
+    { path: '/profile/trash', name: 'profile-trash', component: ProfileTrashView, meta: { hideTabBar: true, requiresAuth: true } },
+    { path: '/profile/feedback', name: 'profile-feedback', component: ProfileFeedbackView, meta: { hideTabBar: true, requiresAuth: true } },
+    { path: '/profile/about', name: 'profile-about', component: ProfileAboutView, meta: { hideTabBar: true, requiresAuth: true } },
+    { path: '/profile/version', name: 'profile-version', component: ProfileVersionView, meta: { hideTabBar: true, requiresAuth: true } },
     { path: '/collect', name: 'collect', component: CollectView, meta: { hideTabBar: true, requiresAuth: true } },
     { path: '/collect/camera', name: 'collect-camera', component: CollectCameraView, meta: { hideTabBar: true, requiresAuth: true } },
     { path: '/create', name: 'create', component: CreateView, meta: { hideTabBar: true, requiresAuth: true } },

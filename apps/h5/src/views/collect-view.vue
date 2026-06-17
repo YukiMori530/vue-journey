@@ -21,6 +21,28 @@ const mapMarkers = shallowRef<AMap.Marker[]>([])
 const items = computed(() => collectStore.items)
 const groups = computed(() => collectStore.groups)
 const isEmpty = computed(() => items.value.length === 0)
+const activeGroupId = ref<string | null>(null)
+
+const visibleItems = computed(() => {
+  if (!activeGroupId.value) {
+    return items.value
+  }
+  return items.value.filter((item) => item.groupId === activeGroupId.value)
+})
+
+function groupPreviews(groupId: string) {
+  return collectStore.itemsByGroup(groupId).slice(0, 4).map((item) => item.photo)
+}
+
+function openGroup(groupId: string) {
+  activeGroupId.value = groupId
+  mainTab.value = 'items'
+  viewMode.value = 'list'
+}
+
+function clearGroupFilter() {
+  activeGroupId.value = null
+}
 
 function goBack() {
   router.back()
@@ -135,6 +157,11 @@ onUnmounted(() => {
     </header>
 
     <section v-if="mainTab === 'items'" class="collect-body">
+      <div v-if="activeGroupId" class="filter-bar">
+        <span>{{ groups.find((g) => g.id === activeGroupId)?.name }}</span>
+        <button type="button" @click="clearGroupFilter">清除</button>
+      </div>
+
       <template v-if="viewMode === 'list'">
         <div v-if="isEmpty" class="empty-state">
           <div class="empty-stamp" aria-hidden="true">
@@ -144,9 +171,16 @@ onUnmounted(() => {
           <button type="button" class="start-btn" @click="openCamera">开始采集</button>
         </div>
 
+        <div v-else-if="visibleItems.length === 0" class="empty-state empty-state--small">
+          <p class="empty-text">这个分组还没有采集</p>
+          <button type="button" class="start-btn start-btn--ghost" @click="clearGroupFilter">
+            查看全部
+          </button>
+        </div>
+
         <div v-else class="stamp-grid">
           <button
-            v-for="item in items"
+            v-for="item in visibleItems"
             :key="item.id"
             type="button"
             class="stamp-card"
@@ -177,21 +211,42 @@ onUnmounted(() => {
     </section>
 
     <section v-else class="groups-body">
+      <p class="groups-tip">把采集整理进文件夹，方便回顾</p>
       <div class="group-grid">
         <button
           v-for="group in groups"
           :key="group.id"
           type="button"
-          class="group-card"
-          @click="showToast(`${group.name}：${collectStore.groupCount(group.id)} 个采集`)"
+          class="group-folder"
+          @click="openGroup(group.id)"
         >
-          <span class="group-name">{{ group.name }}</span>
-          <span class="group-count">{{ collectStore.groupCount(group.id) }}</span>
+          <div class="group-folder__cover">
+            <template v-if="groupPreviews(group.id).length">
+              <img
+                v-for="(photo, index) in groupPreviews(group.id)"
+                :key="index"
+                :src="photo"
+                :alt="group.name"
+                class="group-folder__thumb"
+              />
+            </template>
+            <div v-else class="group-folder__empty">
+              <van-icon name="folder-o" size="28" color="#c8c9cc" />
+            </div>
+          </div>
+          <div class="group-folder__meta">
+            <span class="group-folder__name">{{ group.name }}</span>
+            <span class="group-folder__count">{{ collectStore.groupCount(group.id) }}</span>
+          </div>
+        </button>
+
+        <button type="button" class="group-folder group-folder--add" @click="createGroup">
+          <div class="group-folder__cover group-folder__cover--add">
+            <van-icon name="plus" size="28" color="#969799" />
+          </div>
+          <span class="group-folder__name">新建分组</span>
         </button>
       </div>
-      <button type="button" class="group-add" aria-label="新建分组" @click="createGroup">
-        <van-icon name="plus" size="22" />
-      </button>
     </section>
 
     <footer v-if="mainTab === 'items'" class="collect-footer">
@@ -227,7 +282,7 @@ onUnmounted(() => {
 .collect-page {
   min-height: 100vh;
   padding-bottom: calc(88px + env(safe-area-inset-bottom));
-  background: #f5f6f7;
+  background: linear-gradient(180deg, #fafbfc 0%, #f2f3f5 100%);
 }
 
 .collect-header {
@@ -235,7 +290,9 @@ onUnmounted(() => {
   grid-template-columns: 40px 1fr 40px;
   align-items: center;
   padding: 12px 16px;
-  background: #fff;
+  background: rgb(255 255 255 / 92%);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid rgb(0 0 0 / 4%);
 }
 
 .back-btn {
@@ -251,36 +308,31 @@ onUnmounted(() => {
 }
 
 .main-tabs {
-  display: flex;
-  gap: 24px;
-  justify-content: center;
+  display: inline-flex;
+  gap: 4px;
+  justify-self: center;
+  padding: 4px;
+  border-radius: 12px;
+  background: #f2f3f5;
 }
 
 .main-tab {
   position: relative;
-  padding: 6px 0;
+  padding: 8px 20px;
   border: none;
+  border-radius: 9px;
   background: transparent;
-  font-size: 16px;
-  font-weight: 500;
+  font-size: 15px;
+  font-weight: 600;
   color: #969799;
   cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
 }
 
 .main-tab.active {
-  font-weight: 700;
+  background: #fff;
   color: #111;
-}
-
-.main-tab.active::after {
-  content: '';
-  position: absolute;
-  right: 0;
-  bottom: 0;
-  left: 0;
-  height: 3px;
-  border-radius: 999px;
-  background: #111;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 6%);
 }
 
 .header-spacer {
@@ -330,6 +382,38 @@ onUnmounted(() => {
   cursor: pointer;
 }
 
+.start-btn--ghost {
+  background: #fff;
+  color: #111;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 6%);
+}
+
+.empty-state--small {
+  padding-top: 48px;
+}
+
+.filter-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: #fff;
+  font-size: 13px;
+  color: #646566;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 4%);
+}
+
+.filter-bar button {
+  border: none;
+  background: transparent;
+  font-size: 13px;
+  font-weight: 600;
+  color: #111;
+  cursor: pointer;
+}
+
 .stamp-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -339,11 +423,16 @@ onUnmounted(() => {
 .stamp-card {
   padding: 0;
   border: none;
-  border-radius: 16px;
+  border-radius: 18px;
   overflow: hidden;
   background: #fff;
-  box-shadow: 0 4px 14px rgb(0 0 0 / 6%);
+  box-shadow: 0 6px 20px rgb(0 0 0 / 7%);
   cursor: pointer;
+  transition: transform 0.2s ease;
+}
+
+.stamp-card:active {
+  transform: scale(0.98);
 }
 
 .stamp-card img {
@@ -414,56 +503,96 @@ onUnmounted(() => {
 }
 
 .groups-body {
-  position: relative;
   min-height: 60vh;
+  padding-top: 8px;
+}
+
+.groups-tip {
+  margin: 0 0 16px;
+  font-size: 13px;
+  color: #969799;
 }
 
 .group-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 12px;
+  gap: 14px;
 }
 
-.group-card {
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  min-height: 120px;
-  padding: 16px;
+.group-folder {
+  padding: 0;
   border: none;
-  border-radius: 16px;
-  background: #fff;
+  background: transparent;
   text-align: left;
-  box-shadow: 0 4px 14px rgb(0 0 0 / 6%);
   cursor: pointer;
 }
 
-.group-name {
-  font-size: 15px;
-  font-weight: 600;
-  color: #323233;
+.group-folder__cover {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 3px;
+  aspect-ratio: 1;
+  padding: 3px;
+  overflow: hidden;
+  border-radius: 20px;
+  background: #fff;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 8%);
 }
 
-.group-count {
-  font-size: 28px;
-  font-weight: 800;
-  color: #111;
-}
-
-.group-add {
-  position: fixed;
-  right: 20px;
-  bottom: calc(24px + env(safe-area-inset-bottom));
+.group-folder__cover--add {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 52px;
-  height: 52px;
-  border: none;
-  border-radius: 50%;
   background: #fff;
-  box-shadow: 0 4px 16px rgb(0 0 0 / 12%);
-  cursor: pointer;
+  border: 1.5px dashed #dcdee0;
+  box-shadow: none;
+}
+
+.group-folder__thumb {
+  width: 100%;
+  height: 100%;
+  min-height: 64px;
+  object-fit: cover;
+  border-radius: 10px;
+}
+
+.group-folder__empty {
+  display: flex;
+  grid-column: 1 / -1;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  min-height: 140px;
+  border-radius: 16px;
+  background: linear-gradient(145deg, #f7f8fa 0%, #eef0f3 100%);
+}
+
+.group-folder__meta {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-top: 10px;
+  padding: 0 4px;
+}
+
+.group-folder__name {
+  font-size: 15px;
+  font-weight: 700;
+  color: #111;
+}
+
+.group-folder--add .group-folder__name {
+  display: block;
+  margin-top: 10px;
+  padding: 0 4px;
+  font-weight: 600;
+  color: #646566;
+}
+
+.group-folder__count {
+  font-size: 22px;
+  font-weight: 800;
+  color: #111;
 }
 
 .collect-footer {

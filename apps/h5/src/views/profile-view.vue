@@ -1,14 +1,17 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { showConfirmDialog, showToast } from 'vant'
 import { useAuthStore } from '../stores/auth'
 import { useCollectStore } from '../stores/collect'
+import { useProfileStore } from '../stores/profile'
+import ProfileMenuSheet from '../components/profile-menu-sheet.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()
 const collectStore = useCollectStore()
+const profileStore = useProfileStore()
 
+const showMenu = ref(false)
 const recentCollects = computed(() => collectStore.items.slice(0, 3))
 
 function goBack() {
@@ -23,20 +26,6 @@ function openCamera() {
   router.push('/collect/camera')
 }
 
-async function openMenu() {
-  try {
-    await showConfirmDialog({
-      title: '退出登录',
-      message: `确定退出 ${authStore.displayName} 吗？`,
-    })
-    authStore.logout()
-    showToast('已退出登录')
-    router.push('/login')
-  } catch {
-    // 用户取消
-  }
-}
-
 function checkIn() {
   openCamera()
 }
@@ -48,7 +37,7 @@ function checkIn() {
       <button type="button" class="back-btn" @click="goBack">
         <van-icon name="arrow-left" size="20" />
       </button>
-      <button type="button" class="menu-btn" aria-label="菜单" @click="openMenu">
+      <button type="button" class="menu-btn" aria-label="菜单" @click="showMenu = true">
         <van-icon name="wap-nav" size="20" />
       </button>
     </header>
@@ -58,7 +47,7 @@ function checkIn() {
         <div>
           <p class="card-label">我打卡的地点</p>
           <div class="user-row">
-            <img class="avatar" src="/covers/default.jpg" alt="头像" />
+            <img class="avatar" :src="profileStore.avatarUrl" alt="头像" />
             <div>
               <p class="nickname">{{ authStore.displayName }}</p>
               <p class="stats">
@@ -107,6 +96,8 @@ function checkIn() {
         <div class="activity-card activity-card--front">收藏</div>
       </div>
     </section>
+
+    <ProfileMenuSheet v-model:show="showMenu" />
   </div>
 </template>
 
@@ -114,7 +105,7 @@ function checkIn() {
 .profile-page {
   min-height: 100vh;
   padding: 0 16px 24px;
-  background: #f5f6f7;
+  background: #fff;
 }
 
 .profile-header {
@@ -132,8 +123,7 @@ function checkIn() {
   width: 36px;
   height: 36px;
   border: none;
-  border-radius: 50%;
-  background: #fff;
+  background: transparent;
   cursor: pointer;
 }
 

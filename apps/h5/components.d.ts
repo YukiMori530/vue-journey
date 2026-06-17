@@ -15,7 +15,10 @@ declare module 'vue' {
     AppTabBar: typeof import('./src/components/app-tab-bar.vue')['default']
     CoverImage: typeof import('./src/components/cover-image.vue')['default']
     CreateActionSheet: typeof import('./src/components/create-action-sheet.vue')['default']
+    LogoutDialog: typeof import('./src/components/logout-dialog.vue')['default']
     PasscodeSheet: typeof import('./src/components/passcode-sheet.vue')['default']
+    ProfileMenuSheet: typeof import('./src/components/profile-menu-sheet.vue')['default']
+    ProfileNavBar: typeof import('./src/components/profile-nav-bar.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
     TripCard: typeof import('./src/components/trip-card.vue')['default']
@@ -27,6 +30,8 @@ declare module 'vue' {
     VanIcon: typeof import('vant/es')['Icon']
     VanLoading: typeof import('vant/es')['Loading']
     VanNavBar: typeof import('vant/es')['NavBar']
+    VanOverlay: typeof import('vant/es')['Overlay']
+    VanPopup: typeof import('vant/es')['Popup']
     VanSearch: typeof import('vant/es')['Search']
   }
 }
