@@ -1,14 +1,25 @@
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { showToast } from 'vant'
 import TripCard from '../components/trip-card.vue'
 import AppHeader from '../components/app-header.vue'
 import { useTripStore } from '../stores/trip'
+import { useAuthStore } from '../stores/auth'
 import { ApiError } from '../api/client'
 
 const router = useRouter()
 const tripStore = useTripStore()
+const authStore = useAuthStore()
+
+const tripCount = computed(() => tripStore.trips.length)
+
+const greeting = computed(() => {
+  const hour = new Date().getHours()
+  if (hour < 12) return '早上好'
+  if (hour < 18) return '下午好'
+  return '晚上好'
+})
 
 onMounted(async () => {
   try {
@@ -27,76 +38,163 @@ function openTrip(id: number) {
 
 <template>
   <div class="trip-page">
-    <AppHeader />
+    <div class="page-bg" aria-hidden="true">
+      <span class="blob blob-a" />
+      <span class="blob blob-b" />
+    </div>
 
-    <section class="trip-section">
-      <div class="section-head">
-        <h2 class="section-title">我的计划</h2>
-        <button type="button" class="filter-btn">
-          <van-icon name="bars" size="14" />
-          <span>全部</span>
-        </button>
-      </div>
+    <div class="page-content">
+      <AppHeader />
 
-      <van-loading v-if="tripStore.loading" class="page-loading" vertical>
-        加载中...
-      </van-loading>
+      <section class="trip-hero">
+        <p class="trip-greeting">{{ greeting }}，{{ authStore.displayName }}</p>
+        <div class="hero-row">
+          <h2 class="section-title">我的计划</h2>
+          <span v-if="!tripStore.loading && tripCount > 0" class="trip-count">
+            {{ tripCount }} 个行程
+          </span>
+        </div>
+      </section>
 
-      <van-empty
-        v-else-if="tripStore.trips.length === 0"
-        description="还没有行程，点 + 创建一个吧"
-      />
+      <section class="trip-section">
+        <van-loading v-if="tripStore.loading" class="page-loading" vertical color="#1989fa">
+          加载中...
+        </van-loading>
 
-      <template v-else>
-        <TripCard
-          v-for="trip in tripStore.trips"
-          :key="trip.id"
-          :trip="trip"
-          @click="openTrip(trip.id)"
-        />
-      </template>
-    </section>
+        <div v-else-if="tripStore.trips.length === 0" class="empty-wrap">
+          <van-empty description="还没有行程">
+            <template #image>
+              <div class="empty-icon">
+                <van-icon name="bag-o" size="48" color="#1989fa" />
+              </div>
+            </template>
+          </van-empty>
+          <p class="empty-tip">点击底部 + 创建你的第一个计划</p>
+        </div>
+
+        <div v-else class="trip-list">
+          <TripCard
+            v-for="trip in tripStore.trips"
+            :key="trip.id"
+            :trip="trip"
+            @click="openTrip(trip.id)"
+          />
+        </div>
+      </section>
+    </div>
   </div>
 </template>
 
 <style scoped>
 .trip-page {
+  position: relative;
   min-height: 100vh;
-  padding: 8px 16px 80px;
-  background: #f5f6f7;
+  overflow: hidden;
+  background: linear-gradient(180deg, #e8f2ff 0%, #f5f7fa 28%, #f5f7fa 100%);
 }
 
-.section-head {
+.page-bg {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(50px);
+  opacity: 0.45;
+}
+
+.blob-a {
+  top: -80px;
+  right: -60px;
+  width: 240px;
+  height: 240px;
+  background: #9ec9ff;
+}
+
+.blob-b {
+  top: 120px;
+  left: -80px;
+  width: 200px;
+  height: 200px;
+  background: #c8daf5;
+}
+
+.page-content {
+  position: relative;
+  z-index: 1;
+  padding: 8px 16px 88px;
+}
+
+.trip-hero {
+  margin-bottom: 20px;
+}
+
+.trip-greeting {
+  margin: 0 0 6px;
+  font-size: 14px;
+  color: #646566;
+}
+
+.hero-row {
   display: flex;
-  align-items: center;
+  align-items: baseline;
   justify-content: space-between;
-  margin-bottom: 14px;
+  gap: 12px;
 }
 
 .section-title {
   margin: 0;
-  font-size: 20px;
-  font-weight: 700;
-  color: #1a1a1a;
+  font-size: 26px;
+  font-weight: 800;
+  color: #111;
+  letter-spacing: 0.3px;
 }
 
-.filter-btn {
+.trip-count {
+  flex-shrink: 0;
+  padding: 5px 12px;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 75%);
+  font-size: 12px;
+  font-weight: 500;
+  color: #576b95;
+  box-shadow: 0 2px 8px rgb(25 137 250 / 8%);
+}
+
+.trip-list {
   display: flex;
-  gap: 4px;
-  align-items: center;
-  padding: 8px 14px;
-  border: none;
-  border-radius: 20px;
-  background: #fff;
-  font-size: 13px;
-  color: #646566;
-  box-shadow: 0 1px 4px rgb(0 0 0 / 6%);
-  cursor: pointer;
+  flex-direction: column;
+  gap: 16px;
 }
 
 .page-loading {
   display: flex;
   justify-content: center;
-  padding: 48px 0;
+  padding: 64px 0;
+}
+
+.empty-wrap {
+  padding: 32px 0 16px;
+}
+
+.empty-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 88px;
+  height: 88px;
+  margin: 0 auto;
+  border-radius: 50%;
+  background: rgb(25 137 250 / 10%);
+}
+
+.empty-tip {
+  margin: 8px 0 0;
+  font-size: 13px;
+  text-align: center;
+  color: #969799;
 }
 </style>

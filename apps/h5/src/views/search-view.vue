@@ -2,6 +2,7 @@
 import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { showConfirmDialog, showToast } from 'vant'
+import CoverImage from '../components/cover-image.vue'
 import { filterDiscover } from '../data/discover'
 import { useTripStore } from '../stores/trip'
 import { ApiError } from '../api/client'
@@ -59,84 +60,143 @@ function showMore(type: 'trip' | 'topic') {
 
 <template>
   <div class="search-page">
-    <header class="search-header">
-      <button type="button" class="back-btn" aria-label="返回" @click="goBack">
-        <van-icon name="arrow-left" size="20" />
-      </button>
-      <van-search
-        v-model="keyword"
-        class="search-input"
-        shape="round"
-        placeholder="搜索地点/行程/专题"
-        autofocus
-      />
-    </header>
+    <div class="page-bg" aria-hidden="true">
+      <span class="blob blob-a" />
+      <span class="blob blob-b" />
+    </div>
 
-    <van-empty v-if="isEmpty" description="没有找到相关内容" />
+    <div class="page-content">
+      <header class="search-header">
+        <button type="button" class="back-btn" aria-label="返回" @click="goBack">
+          <van-icon name="arrow-left" size="20" />
+        </button>
+        <van-search
+          v-model="keyword"
+          class="search-input"
+          shape="round"
+          placeholder="搜索地点/行程/专题"
+          autofocus
+        />
+      </header>
 
-    <section v-if="hotTrips.length" class="discover-card">
-      <div class="card-head">
-        <h2 class="card-title">热门行程</h2>
-        <button type="button" class="more-btn" @click="showMore('trip')">更多</button>
-      </div>
+      <van-empty v-if="isEmpty" class="empty-state" description="没有找到相关内容" />
 
-      <button
-        v-for="item in hotTrips"
-        :key="item.id"
-        type="button"
-        class="hot-trip-item"
-        @click="openHotTrip(item)"
-      >
-        <img class="hot-trip-cover" :src="item.cover" :alt="item.title" />
-        <div class="hot-trip-info">
-          <h3 class="hot-trip-title">{{ item.title }}</h3>
-          <p class="hot-trip-meta">
-            <van-icon name="clock-o" size="12" />
-            <span>{{ item.duration }}</span>
-            <van-icon name="location-o" size="12" />
-            <span>{{ item.placeCount }} 个地点</span>
-          </p>
+      <section v-if="hotTrips.length" class="discover-card">
+        <div class="card-head">
+          <h2 class="card-title">热门行程</h2>
+          <button type="button" class="more-btn" @click="showMore('trip')">更多</button>
         </div>
-      </button>
-    </section>
 
-    <section v-if="featuredTopics.length" class="discover-card">
-      <div class="card-head">
-        <h2 class="card-title">精选专题</h2>
-        <button type="button" class="more-btn" @click="showMore('topic')">更多</button>
-      </div>
+        <button
+          v-for="item in hotTrips"
+          :key="item.id"
+          type="button"
+          class="hot-trip-item"
+          @click="openHotTrip(item)"
+        >
+          <CoverImage
+            :src="item.cover"
+            :alt="item.title"
+            img-class="hot-trip-cover"
+          />
+          <div class="hot-trip-info">
+            <h3 class="hot-trip-title">{{ item.title }}</h3>
+            <p class="hot-trip-meta">
+              <span class="meta-chip">
+                <van-icon name="clock-o" size="12" />
+                {{ item.duration }}
+              </span>
+              <span class="meta-chip">
+                <van-icon name="location-o" size="12" />
+                {{ item.placeCount }} 个地点
+              </span>
+            </p>
+          </div>
+          <van-icon name="arrow" class="item-arrow" size="16" />
+        </button>
+      </section>
 
-      <button
-        v-for="item in featuredTopics"
-        :key="item.id"
-        type="button"
-        class="topic-item"
-        @click="openTopic(item)"
-      >
-        <img class="topic-cover" :src="item.cover" :alt="item.title" />
-        <div class="topic-info">
-          <h3 class="topic-title">{{ item.title }}</h3>
-          <p class="topic-snippet">{{ item.snippet }}</p>
-          <p class="topic-meta">{{ item.placeCount }} 个地点</p>
+      <section v-if="featuredTopics.length" class="discover-card">
+        <div class="card-head">
+          <h2 class="card-title">精选专题</h2>
+          <button type="button" class="more-btn" @click="showMore('topic')">更多</button>
         </div>
-      </button>
-    </section>
+
+        <button
+          v-for="item in featuredTopics"
+          :key="item.id"
+          type="button"
+          class="topic-item"
+          @click="openTopic(item)"
+        >
+          <CoverImage
+            :src="item.cover"
+            :alt="item.title"
+            img-class="topic-cover"
+          />
+          <div class="topic-info">
+            <h3 class="topic-title">{{ item.title }}</h3>
+            <p class="topic-snippet">{{ item.snippet }}</p>
+            <p class="topic-meta">
+              <van-icon name="location-o" size="12" />
+              {{ item.placeCount }} 个地点
+            </p>
+          </div>
+          <van-icon name="arrow" class="item-arrow" size="16" />
+        </button>
+      </section>
+    </div>
   </div>
 </template>
 
 <style scoped>
 .search-page {
+  position: relative;
   min-height: 100vh;
+  overflow: hidden;
+  background: linear-gradient(180deg, #e8f2ff 0%, #f5f7fa 24%, #f5f7fa 100%);
+}
+
+.page-bg {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(50px);
+  opacity: 0.4;
+}
+
+.blob-a {
+  top: -60px;
+  right: -50px;
+  width: 200px;
+  height: 200px;
+  background: #9ec9ff;
+}
+
+.blob-b {
+  top: 180px;
+  left: -70px;
+  width: 180px;
+  height: 180px;
+  background: #c8daf5;
+}
+
+.page-content {
+  position: relative;
+  z-index: 1;
   padding-bottom: 24px;
-  background: #f5f6f7;
 }
 
 .search-header {
   display: flex;
   gap: 8px;
   align-items: center;
-  padding: 8px 12px 12px;
-  background: #f5f6f7;
+  padding: 8px 16px 12px;
 }
 
 .back-btn {
@@ -144,11 +204,12 @@ function showMore(type: 'trip' | 'topic') {
   flex-shrink: 0;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
+  width: 40px;
+  height: 40px;
   border: none;
   border-radius: 50%;
-  background: #fff;
+  background: rgb(255 255 255 / 85%);
+  box-shadow: 0 2px 8px rgb(25 137 250 / 8%);
   cursor: pointer;
 }
 
@@ -159,28 +220,35 @@ function showMore(type: 'trip' | 'topic') {
 }
 
 .search-input :deep(.van-search__content) {
-  background: #fff;
+  background: rgb(255 255 255 / 92%);
+  box-shadow: 0 2px 8px rgb(25 137 250 / 6%);
+}
+
+.empty-state {
+  padding-top: 48px;
 }
 
 .discover-card {
-  margin: 0 16px 12px;
-  padding: 16px;
-  border-radius: 16px;
-  background: #fff;
+  margin: 0 16px 14px;
+  padding: 18px 16px;
+  border: 1px solid rgb(255 255 255 / 80%);
+  border-radius: 20px;
+  background: rgb(255 255 255 / 92%);
+  box-shadow: 0 8px 24px rgb(25 137 250 / 8%);
 }
 
 .card-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 12px;
+  margin-bottom: 4px;
 }
 
 .card-title {
   margin: 0;
   font-size: 18px;
-  font-weight: 700;
-  color: #1a1a1a;
+  font-weight: 800;
+  color: #111;
 }
 
 .more-btn {
@@ -199,8 +267,9 @@ function showMore(type: 'trip' | 'topic') {
 .topic-item {
   display: flex;
   gap: 12px;
+  align-items: center;
   width: 100%;
-  padding: 12px 0;
+  padding: 14px 0;
   border: none;
   border-top: 1px solid #f2f3f5;
   background: transparent;
@@ -211,16 +280,21 @@ function showMore(type: 'trip' | 'topic') {
 .hot-trip-item:first-of-type,
 .topic-item:first-of-type {
   border-top: none;
-  padding-top: 0;
 }
 
-.hot-trip-cover,
-.topic-cover {
+.hot-trip-item:active,
+.topic-item:active {
+  opacity: 0.85;
+}
+
+.hot-trip-item :deep(.hot-trip-cover),
+.topic-item :deep(.topic-cover) {
   flex-shrink: 0;
-  width: 72px;
-  height: 72px;
-  border-radius: 12px;
+  width: 76px;
+  height: 76px;
+  border-radius: 14px;
   object-fit: cover;
+  box-shadow: 0 4px 12px rgb(0 0 0 / 8%);
 }
 
 .hot-trip-info,
@@ -236,7 +310,7 @@ function showMore(type: 'trip' | 'topic') {
   overflow: hidden;
   font-size: 15px;
   font-weight: 600;
-  line-height: 1.4;
+  line-height: 1.45;
   color: #323233;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
@@ -245,11 +319,19 @@ function showMore(type: 'trip' | 'topic') {
 .hot-trip-meta {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px 10px;
-  align-items: center;
+  gap: 6px;
   margin: 0;
-  font-size: 12px;
-  color: #969799;
+}
+
+.meta-chip {
+  display: inline-flex;
+  gap: 3px;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: #f2f6fc;
+  font-size: 11px;
+  color: #646566;
 }
 
 .topic-snippet {
@@ -264,8 +346,16 @@ function showMore(type: 'trip' | 'topic') {
 }
 
 .topic-meta {
+  display: inline-flex;
+  gap: 3px;
+  align-items: center;
   margin: 0;
   font-size: 12px;
   color: #969799;
+}
+
+.item-arrow {
+  flex-shrink: 0;
+  color: #c8c9cc;
 }
 </style>

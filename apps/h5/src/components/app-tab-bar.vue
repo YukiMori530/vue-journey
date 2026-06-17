@@ -59,7 +59,9 @@ function onAddClick() {
   max-width: 480px;
   margin: 0 auto;
   padding: 8px 0 calc(10px + env(safe-area-inset-bottom));
-  background: #fff;
+  background: rgb(255 255 255 / 92%);
+  backdrop-filter: blur(12px);
+  border-top: 1px solid rgb(0 0 0 / 4%);
 }
 
 .tab-bar__inner {
@@ -88,7 +90,7 @@ function onAddClick() {
 }
 
 .tab-item.active {
-  color: #111;
+  color: #1989fa;
 }
 
 .tab-item__icon {
@@ -111,11 +113,12 @@ function onAddClick() {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 44px;
-  height: 44px;
+  width: 48px;
+  height: 48px;
   border: none;
-  border-radius: 18px;
-  background: #111;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #4facfe 0%, #1989fa 55%, #0d6efd 100%);
+  box-shadow: 0 8px 20px rgb(25 137 250 / 32%);
   cursor: pointer;
   transition: transform 0.15s ease, opacity 0.15s ease;
   -webkit-tap-highlight-color: transparent;

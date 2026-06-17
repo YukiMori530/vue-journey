@@ -1,118 +1,166 @@
 <script setup lang="ts">
+import { computed, ref, watch } from 'vue'
 import type { Trip } from '../types/trip'
+import { getTripCoverCandidates } from '../utils/trip-covers'
 
-defineProps<{
+const props = defineProps<{
   trip: Trip
 }>()
 
 const emit = defineEmits<{
   click: []
 }>()
+
+const coverIndex = ref(0)
+
+const coverCandidates = computed(() => getTripCoverCandidates(props.trip))
+
+const currentCover = computed(
+  () => coverCandidates.value[coverIndex.value] ?? '/covers/default.jpg',
+)
+
+watch(
+  () => props.trip.id,
+  () => {
+    coverIndex.value = 0
+  },
+)
+
+function onCoverError() {
+  if (coverIndex.value < coverCandidates.value.length - 1) {
+    coverIndex.value += 1
+  }
+}
 </script>
 
 <template>
-  <article class="trip-card" :style="{ background: trip.theme }" @click="emit('click')">
-    <div class="trip-card__info">
+  <article class="trip-card" @click="emit('click')">
+    <div class="trip-card__media" :style="{ background: trip.theme }">
+      <img
+        class="trip-card__cover"
+        :src="currentCover"
+        :alt="trip.title"
+        loading="lazy"
+        @error="onCoverError"
+      />
+      <div class="trip-card__overlay" />
+      <span class="trip-card__dest">{{ trip.destination }}</span>
+      <span v-if="trip.preferences[0]" class="trip-card__tag">
+        {{ trip.preferences[0] }}
+      </span>
+    </div>
+
+    <div class="trip-card__body">
       <h3 class="trip-card__title">{{ trip.title }}</h3>
-      <p class="trip-card__meta">
-        <span>{{ trip.nights }}</span>
-        <span class="dot">·</span>
-        <span>{{ trip.placeCount }} 个地点</span>
-      </p>
-      <div class="trip-card__members">
-        <img
-          class="member-avatar"
-          src="https://api.dicebear.com/7.x/avataaars/svg?seed=user1"
-          alt="成员"
-        />
-        <button type="button" class="member-add" aria-label="邀请同行" @click.stop>
-          <van-icon name="plus" size="14" />
-        </button>
+      <div class="trip-card__meta">
+        <span class="meta-item">
+          <van-icon name="clock-o" size="14" />
+          {{ trip.nights }}
+        </span>
+        <span class="meta-dot" />
+        <span class="meta-item">
+          <van-icon name="location-o" size="14" />
+          {{ trip.placeCount }} 个地点
+        </span>
       </div>
     </div>
-    <img class="trip-card__cover" :src="trip.cover" :alt="trip.title" />
   </article>
 </template>
 
 <style scoped>
 .trip-card {
-  position: relative;
-  display: flex;
-  min-height: 148px;
-  padding: 20px 16px;
-  margin-bottom: 16px;
   overflow: hidden;
   border-radius: 20px;
+  background: #fff;
+  box-shadow:
+    0 8px 24px rgb(25 137 250 / 8%),
+    0 2px 8px rgb(0 0 0 / 4%);
   cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
 .trip-card:active {
-  opacity: 0.92;
+  transform: scale(0.985);
 }
 
-.trip-card__info {
-  z-index: 1;
-  flex: 1;
-  max-width: 58%;
+.trip-card__media {
+  position: relative;
+  height: 148px;
+  overflow: hidden;
+}
+
+.trip-card__cover {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.trip-card__overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    180deg,
+    rgb(0 0 0 / 0%) 30%,
+    rgb(0 0 0 / 28%) 100%
+  );
+  pointer-events: none;
+}
+
+.trip-card__dest {
+  position: absolute;
+  bottom: 12px;
+  left: 14px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 92%);
+  backdrop-filter: blur(6px);
+  font-size: 12px;
+  font-weight: 600;
+  color: #1989fa;
+}
+
+.trip-card__tag {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgb(0 0 0 / 35%);
+  backdrop-filter: blur(4px);
+  font-size: 11px;
+  color: #fff;
+}
+
+.trip-card__body {
+  padding: 14px 16px 16px;
 }
 
 .trip-card__title {
   margin: 0 0 8px;
   font-size: 17px;
-  font-weight: 600;
+  font-weight: 700;
   line-height: 1.4;
-  color: #1a1a1a;
+  color: #111;
 }
 
 .trip-card__meta {
   display: flex;
-  gap: 4px;
-  align-items: center;
-  margin: 0 0 16px;
-  font-size: 13px;
-  color: #5a7a72;
-}
-
-.dot {
-  opacity: 0.6;
-}
-
-.trip-card__members {
-  display: flex;
   gap: 8px;
   align-items: center;
+  font-size: 13px;
+  color: #646566;
 }
 
-.member-avatar {
-  width: 28px;
-  height: 28px;
-  border: 2px solid #fff;
-  border-radius: 50%;
-  object-fit: cover;
-}
-
-.member-add {
-  display: flex;
+.meta-item {
+  display: inline-flex;
+  gap: 4px;
   align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border: none;
-  border-radius: 50%;
-  background: rgb(255 255 255 / 70%);
-  color: #666;
-  cursor: pointer;
 }
 
-.trip-card__cover {
-  position: absolute;
-  top: 12px;
-  right: -8px;
-  width: 130px;
-  height: 118px;
-  object-fit: cover;
-  border-radius: 14px;
-  box-shadow: 0 8px 24px rgb(0 0 0 / 12%);
-  transform: rotate(8deg);
+.meta-dot {
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: #c8c9cc;
 }
 </style>

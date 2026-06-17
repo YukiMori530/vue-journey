@@ -7,11 +7,12 @@ const THEMES = [
   'linear-gradient(135deg, #f3e8ff 0%, #e9d5ff 100%)',
 ];
 
+/** 本地封面路径（由 H5 public/covers 提供，不依赖外网） */
 const COVERS = [
-  'https://images.unsplash.com/photo-1514565131-fce0801e5785?w=400&q=80',
-  'https://images.unsplash.com/photo-1590736969955-71cc94901144?w=400&q=80',
-  'https://images.unsplash.com/photo-1508804185872-d83badad00f2?w=400&q=80',
-  'https://images.unsplash.com/photo-1547981609-4c6a41de1593?w=400&q=80',
+  '/covers/yantai.jpg',
+  '/covers/chengdu.jpg',
+  '/covers/hainan.jpg',
+  '/covers/default.jpg',
 ];
 
 const PLACE_TEMPLATES = [
