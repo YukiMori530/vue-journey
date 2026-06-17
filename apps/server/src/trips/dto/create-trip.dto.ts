@@ -7,7 +7,6 @@ import {
   IsNotEmpty,
   IsOptional,
   IsString,
-  IsUrl,
   Max,
   MaxLength,
   Min,
@@ -55,11 +54,12 @@ export class CreateTripDto {
 
   @IsOptional()
   @IsInt()
-  @Min(1)
+  @Min(0)
   placeCount?: number;
 
   @IsOptional()
-  @IsUrl()
+  @IsString()
+  @MaxLength(200)
   cover?: string;
 
   @IsOptional()
