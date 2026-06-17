@@ -3,14 +3,20 @@ import { computed, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import AppTabBar from './components/app-tab-bar.vue'
 import CreateActionSheet from './components/create-action-sheet.vue'
+import PasscodeSheet from './components/passcode-sheet.vue'
 
 const route = useRoute()
 const showCreateSheet = ref(false)
+const showPasscodeSheet = ref(false)
 
 const showTabBar = computed(() => !route.meta.hideTabBar)
 
 function openCreateSheet() {
   showCreateSheet.value = true
+}
+
+function openPasscodeSheet() {
+  showPasscodeSheet.value = true
 }
 </script>
 
@@ -18,7 +24,11 @@ function openCreateSheet() {
   <div class="app-layout" :class="{ 'no-tabbar': !showTabBar }">
     <RouterView />
 
-    <CreateActionSheet v-model:show="showCreateSheet" />
+    <CreateActionSheet
+      v-model:show="showCreateSheet"
+      @open-passcode="openPasscodeSheet"
+    />
+    <PasscodeSheet v-model:show="showPasscodeSheet" />
 
     <AppTabBar
       v-if="showTabBar"

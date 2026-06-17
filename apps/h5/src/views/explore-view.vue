@@ -2,14 +2,24 @@
 import { computed, onMounted, onUnmounted, ref, shallowRef } from 'vue'
 import { useRouter } from 'vue-router'
 import { showToast } from 'vant'
+import CoverImage from '../components/cover-image.vue'
 import { exploreCities, getCityById, type ExplorePoi, type PoiCategory } from '../data/explore-pois'
+import {
+  exploreCollections,
+  hotCities,
+  mapStories,
+  type MapStory,
+} from '../data/explore-discover'
+import { useAuthStore } from '../stores/auth'
 import { loadAMap } from '../utils/amap'
 
 const router = useRouter()
+const authStore = useAuthStore()
 
 const mapContainer = ref<HTMLElement | null>(null)
 const mapInstance = shallowRef<AMap.Map | null>(null)
-const markerInstances = shallowRef<AMap.Marker[]>([])
+const poiMarkers = shallowRef<AMap.Marker[]>([])
+const storyMarkers = shallowRef<AMap.Marker[]>([])
 const mapLoading = ref(true)
 const mapError = ref('')
 const selectedCategory = ref<PoiCategory | null>(null)
@@ -31,21 +41,6 @@ const categories: Array<{ icon: string; label: PoiCategory }> = [
   { icon: '🛏️', label: '住宿' },
 ]
 
-const collections = [
-  {
-    id: 1,
-    cover: 'https://images.unsplash.com/photo-1508804185872-d83badad00f2?w=400&q=80',
-  },
-  {
-    id: 2,
-    cover: 'https://images.unsplash.com/photo-1547981609-4c6a41de1593?w=400&q=80',
-  },
-  {
-    id: 3,
-    cover: 'https://images.unsplash.com/photo-1596422846543-75c6fc4f9f50?w=400&q=80',
-  },
-]
-
 const visiblePois = computed(() => {
   const pois = currentCity.value.pois
   if (!selectedCategory.value) {
@@ -53,6 +48,20 @@ const visiblePois = computed(() => {
   }
   return pois.filter((poi) => poi.category === selectedCategory.value)
 })
+
+const visibleStories = computed(() =>
+  mapStories.filter((story) => story.cityId === currentCityId.value),
+)
+
+function buildStoryContent(story: MapStory) {
+  return `
+    <div class="map-story-marker">
+      <img class="map-story-marker__img" src="${story.cover}" alt="" />
+      <div class="map-story-marker__bubble">${story.text}</div>
+      <div class="map-story-marker__loc">${story.location}</div>
+    </div>
+  `
+}
 
 function switchCity(cityId: string) {
   if (cityId === currentCityId.value) {
@@ -65,7 +74,7 @@ function switchCity(cityId: string) {
   const map = mapInstance.value
   if (map) {
     map.setCenter(currentCity.value.center)
-    renderMarkers()
+    renderMapMarkers()
   }
 }
 
@@ -85,9 +94,17 @@ function openSearch() {
   router.push('/search')
 }
 
+function openProfile() {
+  if (!authStore.isLoggedIn) {
+    router.push('/login')
+    return
+  }
+  router.push('/profile')
+}
+
 function toggleCategory(label: PoiCategory) {
   selectedCategory.value = selectedCategory.value === label ? null : label
-  renderMarkers()
+  renderPoiMarkers()
 }
 
 function handlePoiClick(poi: ExplorePoi) {
@@ -97,20 +114,29 @@ function handlePoiClick(poi: ExplorePoi) {
   })
 }
 
-function clearMarkers() {
-  markerInstances.value.forEach((marker) => marker.setMap(null))
-  markerInstances.value = []
+function handleStoryClick(story: MapStory) {
+  showToast(story.text)
 }
 
-function renderMarkers() {
+function clearPoiMarkers() {
+  poiMarkers.value.forEach((marker) => marker.setMap(null))
+  poiMarkers.value = []
+}
+
+function clearStoryMarkers() {
+  storyMarkers.value.forEach((marker) => marker.setMap(null))
+  storyMarkers.value = []
+}
+
+function renderPoiMarkers() {
   const map = mapInstance.value
   if (!map) {
     return
   }
 
-  clearMarkers()
+  clearPoiMarkers()
 
-  const markers = visiblePois.value.map((poi) => {
+  poiMarkers.value = visiblePois.value.map((poi) => {
     const marker = new AMap.Marker({
       position: [poi.lng, poi.lat],
       title: poi.name,
@@ -124,8 +150,33 @@ function renderMarkers() {
     marker.setMap(map)
     return marker
   })
+}
 
-  markerInstances.value = markers
+function renderStoryMarkers() {
+  const map = mapInstance.value
+  if (!map) {
+    return
+  }
+
+  clearStoryMarkers()
+
+  storyMarkers.value = visibleStories.value.map((story) => {
+    const marker = new AMap.Marker({
+      position: [story.lng, story.lat],
+      content: buildStoryContent(story),
+      offset: new AMap.Pixel(-58, -92),
+      zIndex: 120,
+    })
+
+    marker.on('click', () => handleStoryClick(story))
+    marker.setMap(map)
+    return marker
+  })
+}
+
+function renderMapMarkers() {
+  renderStoryMarkers()
+  renderPoiMarkers()
 }
 
 async function initMap() {
@@ -137,7 +188,7 @@ async function initMap() {
     await loadAMap()
 
     const map = new AMap.Map(mapContainer.value, {
-      zoom: 12,
+      zoom: 11,
       center: currentCity.value.center,
       viewMode: '2D',
       mapStyle: 'amap://styles/normal',
@@ -145,7 +196,7 @@ async function initMap() {
 
     map.add(new AMap.Scale({ position: 'LB' }))
     mapInstance.value = map
-    renderMarkers()
+    renderMapMarkers()
   } catch (error) {
     mapError.value =
       error instanceof Error ? error.message : '地图加载失败，请检查 Key 配置'
@@ -182,12 +233,21 @@ function handleMyLocation() {
   )
 }
 
+function openCollection(item: { title: string }) {
+  showToast(`合集「${item.title}」即将上线`)
+}
+
+function openHotCity(city: { name: string }) {
+  showToast(`${city.name} 详情即将上线`)
+}
+
 onMounted(() => {
   initMap()
 })
 
 onUnmounted(() => {
-  clearMarkers()
+  clearPoiMarkers()
+  clearStoryMarkers()
   mapInstance.value?.destroy()
   mapInstance.value = null
 })
@@ -218,11 +278,12 @@ onUnmounted(() => {
           <button type="button" class="icon-btn" aria-label="搜索" @click="openSearch">
             <van-icon name="search" size="24" />
           </button>
-          <img
-            class="user-avatar"
-            src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&q=80"
-            alt="头像"
-          />
+          <button type="button" class="avatar-btn" aria-label="个人" @click="openProfile">
+            <span v-if="authStore.isLoggedIn" class="avatar-text">
+              {{ authStore.displayName.slice(0, 1) }}
+            </span>
+            <van-icon v-else name="user-o" size="20" />
+          </button>
         </div>
       </header>
 
@@ -249,9 +310,38 @@ onUnmounted(() => {
       <div class="sheet-handle" />
       <h2 class="sheet-title">为你发现了一些地点合集</h2>
       <div class="collection-scroll">
-        <div v-for="item in collections" :key="item.id" class="collection-card">
-          <img :src="item.cover" alt="地点合集" />
-        </div>
+        <button
+          v-for="item in exploreCollections"
+          :key="item.id"
+          type="button"
+          class="collection-card"
+          @click="openCollection(item)"
+        >
+          <CoverImage :src="item.cover" :alt="item.title" img-class="collection-cover" />
+          <p class="collection-title">{{ item.title }}</p>
+        </button>
+      </div>
+
+      <div class="hot-city-list">
+        <button
+          v-for="city in hotCities"
+          :key="city.id"
+          type="button"
+          class="hot-city-item"
+          @click="openHotCity(city)"
+        >
+          <CoverImage :src="city.cover" :alt="city.name" img-class="hot-city-cover" />
+          <div class="hot-city-info">
+            <div class="hot-city-head">
+              <h3>{{ city.name }}</h3>
+              <div class="hot-city-tags">
+                <span v-if="city.rankTag" class="tag tag--rank">{{ city.rankTag }}</span>
+                <span class="tag">{{ city.planCount }}</span>
+              </div>
+            </div>
+            <p class="hot-city-desc">{{ city.description }}</p>
+          </div>
+        </button>
       </div>
     </section>
 
@@ -277,7 +367,7 @@ onUnmounted(() => {
 .map-area {
   position: absolute;
   inset: 0;
-  bottom: 200px;
+  bottom: 280px;
 }
 
 .amap-container {
@@ -353,7 +443,8 @@ onUnmounted(() => {
   align-items: center;
 }
 
-.icon-btn {
+.icon-btn,
+.avatar-btn {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -364,15 +455,17 @@ onUnmounted(() => {
   background: rgb(255 255 255 / 90%);
   color: #111;
   cursor: pointer;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 8%);
 }
 
-.user-avatar {
-  width: 38px;
-  height: 38px;
-  border: 2px solid #fff;
-  border-radius: 50%;
-  object-fit: cover;
-  box-shadow: 0 2px 8px rgb(0 0 0 / 10%);
+.avatar-btn {
+  background: #1989fa;
+  color: #fff;
+}
+
+.avatar-text {
+  font-size: 15px;
+  font-weight: 700;
 }
 
 .category-scroll {
@@ -407,7 +500,7 @@ onUnmounted(() => {
 }
 
 .category-pill.active {
-  background: #1989fa;
+  background: #111;
   color: #fff;
 }
 
@@ -435,8 +528,10 @@ onUnmounted(() => {
   left: 0;
   z-index: 10;
   max-width: 480px;
+  max-height: 280px;
   margin: 0 auto;
-  padding: 8px 0 16px;
+  padding: 8px 0 12px;
+  overflow-y: auto;
   border-radius: 20px 20px 0 0;
   background: #fff;
   box-shadow: 0 -4px 20px rgb(0 0 0 / 8%);
@@ -461,7 +556,7 @@ onUnmounted(() => {
 .collection-scroll {
   display: flex;
   gap: 12px;
-  padding: 0 16px;
+  padding: 0 16px 14px;
   overflow-x: auto;
   scrollbar-width: none;
 }
@@ -472,16 +567,99 @@ onUnmounted(() => {
 
 .collection-card {
   flex-shrink: 0;
-  width: 140px;
-  height: 180px;
-  overflow: hidden;
-  border-radius: 14px;
+  width: 148px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
 }
 
-.collection-card img {
-  width: 100%;
-  height: 100%;
+.collection-card :deep(.collection-cover) {
+  width: 148px;
+  height: 112px;
+  border-radius: 14px;
   object-fit: cover;
+}
+
+.collection-title {
+  display: -webkit-box;
+  margin: 8px 0 0;
+  overflow: hidden;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: #323233;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.hot-city-list {
+  padding: 0 16px;
+  border-top: 8px solid #f5f6f7;
+}
+
+.hot-city-item {
+  display: flex;
+  gap: 12px;
+  width: 100%;
+  padding: 14px 0;
+  border: none;
+  border-top: 1px solid #f2f3f5;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.hot-city-item:first-child {
+  border-top: none;
+}
+
+.hot-city-item :deep(.hot-city-cover) {
+  flex-shrink: 0;
+  width: 72px;
+  height: 72px;
+  border-radius: 12px;
+  object-fit: cover;
+}
+
+.hot-city-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.hot-city-head h3 {
+  margin: 0 0 6px;
+  font-size: 16px;
+  font-weight: 700;
+  color: #111;
+}
+
+.hot-city-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.tag {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #f2f3f5;
+  font-size: 11px;
+  color: #646566;
+}
+
+.tag--rank {
+  background: #fff7e6;
+  color: #ed6a0c;
+}
+
+.hot-city-desc {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #646566;
 }
 </style>
 
@@ -494,5 +672,37 @@ onUnmounted(() => {
   color: #323233;
   white-space: nowrap;
   box-shadow: 0 2px 8px rgb(0 0 0 / 12%);
+}
+
+.map-story-marker {
+  width: 116px;
+  text-align: center;
+}
+
+.map-story-marker__img {
+  width: 52px;
+  height: 52px;
+  border: 2px solid #fff;
+  border-radius: 10px;
+  object-fit: cover;
+  box-shadow: 0 4px 12px rgb(0 0 0 / 15%);
+}
+
+.map-story-marker__bubble {
+  position: relative;
+  margin-top: 6px;
+  padding: 6px 8px;
+  border-radius: 12px;
+  background: #fff;
+  font-size: 11px;
+  line-height: 1.35;
+  color: #323233;
+  box-shadow: 0 2px 10px rgb(0 0 0 / 12%);
+}
+
+.map-story-marker__loc {
+  margin-top: 4px;
+  font-size: 10px;
+  color: #969799;
 }
 </style>

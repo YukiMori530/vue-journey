@@ -15,6 +15,7 @@ declare module 'vue' {
     AppTabBar: typeof import('./src/components/app-tab-bar.vue')['default']
     CoverImage: typeof import('./src/components/cover-image.vue')['default']
     CreateActionSheet: typeof import('./src/components/create-action-sheet.vue')['default']
+    PasscodeSheet: typeof import('./src/components/passcode-sheet.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
     TripCard: typeof import('./src/components/trip-card.vue')['default']

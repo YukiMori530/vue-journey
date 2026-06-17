@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { useRouter } from 'vue-router'
-import { showToast } from 'vant'
 import { useAuthStore } from '../stores/auth'
 
 const show = defineModel<boolean>('show', { default: false })
+const emit = defineEmits<{
+  openPasscode: []
+}>()
 const router = useRouter()
 const authStore = useAuthStore()
 
@@ -29,8 +31,12 @@ function goSmartImport() {
 }
 
 function goCollect() {
+  requireAuth('/import?mode=photo')
+}
+
+function openPasscode() {
   close()
-  showToast('采集识别功能开发中')
+  emit('openPasscode')
 }
 </script>
 
@@ -38,6 +44,10 @@ function goCollect() {
   <Transition name="fade">
     <div v-if="show" class="action-sheet">
       <div class="action-sheet__mask" @click="close" />
+
+      <button type="button" class="passcode-entry" @click="openPasscode">
+        使用口令
+      </button>
 
       <div class="action-sheet__panel">
         <button type="button" class="action-item action-item--primary" @click="goCreatePlan">
@@ -90,6 +100,22 @@ function goCollect() {
   position: absolute;
   inset: 0;
   background: rgb(0 0 0 / 45%);
+}
+
+.passcode-entry {
+  position: absolute;
+  top: calc(12px + env(safe-area-inset-top));
+  right: 16px;
+  z-index: 1;
+  padding: 8px 14px;
+  border: none;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 92%);
+  font-size: 13px;
+  font-weight: 600;
+  color: #111;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 10%);
 }
 
 .action-sheet__panel {

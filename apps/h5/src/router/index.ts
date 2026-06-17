@@ -6,6 +6,7 @@ import TripDetailView from '../views/trip-detail-view.vue'
 import SearchView from '../views/search-view.vue'
 import ImportView from '../views/import-view.vue'
 import LoginView from '../views/login-view.vue'
+import ProfileView from '../views/profile-view.vue'
 import { useAuthStore } from '../stores/auth'
 
 const router = createRouter({
@@ -16,6 +17,7 @@ const router = createRouter({
     { path: '/login', name: 'login', component: LoginView, meta: { hideTabBar: true, guestOnly: true } },
     { path: '/search', name: 'search', component: SearchView, meta: { hideTabBar: true, requiresAuth: true } },
     { path: '/import', name: 'import', component: ImportView, meta: { hideTabBar: true, requiresAuth: true } },
+    { path: '/profile', name: 'profile', component: ProfileView, meta: { hideTabBar: true, requiresAuth: true } },
     { path: '/create', name: 'create', component: CreateView, meta: { hideTabBar: true, requiresAuth: true } },
     { path: '/trip/:id', name: 'trip-detail', component: TripDetailView, meta: { hideTabBar: true, requiresAuth: true } },
   ],

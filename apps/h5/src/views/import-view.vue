@@ -1,15 +1,19 @@
 <script setup lang="ts">
-import { ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { computed, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { showToast } from 'vant'
 import { useTripStore } from '../stores/trip'
 import { ApiError } from '../api/client'
 
 const router = useRouter()
+const route = useRoute()
 const tripStore = useTripStore()
 
 const guideText = ref('')
 const loading = ref(false)
+const photoInput = ref<HTMLInputElement | null>(null)
+
+const isPhotoMode = computed(() => route.query.mode === 'photo')
 
 const exampleText = `第1天
 - 赛里木湖东门
@@ -33,16 +37,30 @@ function goBack() {
   router.back()
 }
 
+function openPhotoPicker() {
+  photoInput.value?.click()
+}
+
+function onPhotoSelected(event: Event) {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (!file) {
+    return
+  }
+  showToast('截图识别开发中，请先用文本导入')
+  input.value = ''
+}
+
 async function handleImport() {
   if (!guideText.value.trim()) {
-    showToast('请粘贴攻略文本')
+    showToast('请粘贴攻略文本或链接内容')
     return
   }
 
   loading.value = true
   try {
     const trip = await tripStore.addTripFromText(guideText.value)
-    showToast('导入成功')
+    showToast('识别成功')
     router.push(`/trip/${trip.id}`)
   } catch (error) {
     const message = error instanceof ApiError ? error.message : '导入失败，请确认后端已启动'
@@ -64,31 +82,53 @@ async function handleImport() {
     </header>
 
     <div class="import-body">
-      <p class="import-desc">
-        粘贴小红书、公众号等攻略文字，DeepSeek 智能识别「第几天」和地点并保存。
-      </p>
+      <section class="import-card import-card--active">
+        <div class="card-head">
+          <van-icon name="link-o" size="18" />
+          <h2>文本或链接识别</h2>
+        </div>
+        <p class="card-desc">
+          长按粘贴文本内容/链接进行自动识别。链接解析现已支持：小红书笔记、公众号内容及已公开权限的飞书文档。
+        </p>
 
-      <van-field
-        v-model="guideText"
-        class="import-field"
-        rows="12"
-        autosize
-        type="textarea"
-        maxlength="2000"
-        show-word-limit
-        placeholder="粘贴攻略文本，例如：&#10;第1天&#10;- 宽窄巷子&#10;- 锦里古街"
-      />
+        <van-field
+          v-model="guideText"
+          class="import-field"
+          rows="6"
+          autosize
+          type="textarea"
+          maxlength="2000"
+          placeholder="粘贴攻略文本，例如：&#10;第1天&#10;- 宽窄巷子&#10;- 锦里古街"
+        />
 
-      <van-button
-        type="primary"
-        block
-        round
-        class="submit-btn"
-        :loading="loading"
-        @click="handleImport"
+        <button
+          type="button"
+          class="start-btn"
+          :disabled="loading"
+          @click="handleImport"
+        >
+          {{ loading ? '识别中...' : '开始识别' }}
+        </button>
+      </section>
+
+      <section
+        class="import-card import-card--muted"
+        :class="{ highlight: isPhotoMode }"
+        @click="openPhotoPicker"
       >
-        开始识别并生成行程
-      </van-button>
+        <input
+          ref="photoInput"
+          type="file"
+          accept="image/*"
+          class="hidden-input"
+          @change="onPhotoSelected"
+        />
+        <div class="card-head">
+          <van-icon name="photo-o" size="18" />
+          <h2>截图识别</h2>
+        </div>
+        <p class="card-desc">选择含有地点信息的页面截图</p>
+      </section>
     </div>
   </div>
 </template>
@@ -134,11 +174,47 @@ async function handleImport() {
 }
 
 .import-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
   padding: 16px;
 }
 
-.import-desc {
-  margin: 0 0 12px;
+.import-card {
+  padding: 18px 16px;
+  border-radius: 18px;
+  background: #fff;
+}
+
+.import-card--active {
+  border: 2px solid #111;
+}
+
+.import-card--muted {
+  background: #eceff3;
+  cursor: pointer;
+}
+
+.import-card--muted.highlight {
+  box-shadow: 0 0 0 2px #111 inset;
+}
+
+.card-head {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.card-head h2 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: #111;
+}
+
+.card-desc {
+  margin: 0 0 14px;
   font-size: 13px;
   line-height: 1.6;
   color: #646566;
@@ -146,15 +222,34 @@ async function handleImport() {
 
 .import-field {
   overflow: hidden;
+  margin-bottom: 14px;
   border-radius: 12px;
-  background: #fff;
+  background: #f7f8fa;
 }
 
 .import-field :deep(.van-field__control) {
-  min-height: 220px;
+  min-height: 120px;
 }
 
-.submit-btn {
-  margin-top: 20px;
+.start-btn {
+  display: block;
+  margin-left: auto;
+  padding: 10px 22px;
+  border: none;
+  border-radius: 999px;
+  background: #111;
+  font-size: 14px;
+  font-weight: 600;
+  color: #fff;
+  cursor: pointer;
+}
+
+.start-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.hidden-input {
+  display: none;
 }
 </style>
