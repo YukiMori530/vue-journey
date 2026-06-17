@@ -11,7 +11,6 @@ const tripStore = useTripStore()
 
 const guideText = ref('')
 const loading = ref(false)
-const photoInput = ref<HTMLInputElement | null>(null)
 
 const isPhotoMode = computed(() => route.query.mode === 'photo')
 
@@ -38,17 +37,7 @@ function goBack() {
 }
 
 function openPhotoPicker() {
-  photoInput.value?.click()
-}
-
-function onPhotoSelected(event: Event) {
-  const input = event.target as HTMLInputElement
-  const file = input.files?.[0]
-  if (!file) {
-    return
-  }
-  showToast('截图识别开发中，请先用文本导入')
-  input.value = ''
+  router.push('/collect/camera')
 }
 
 async function handleImport() {
@@ -116,13 +105,6 @@ async function handleImport() {
         :class="{ highlight: isPhotoMode }"
         @click="openPhotoPicker"
       >
-        <input
-          ref="photoInput"
-          type="file"
-          accept="image/*"
-          class="hidden-input"
-          @change="onPhotoSelected"
-        />
         <div class="card-head">
           <van-icon name="photo-o" size="18" />
           <h2>截图识别</h2>

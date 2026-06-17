@@ -31,7 +31,7 @@ function goSmartImport() {
 }
 
 function goCollect() {
-  requireAuth('/import?mode=photo')
+  requireAuth('/collect/camera')
 }
 
 function openPasscode() {

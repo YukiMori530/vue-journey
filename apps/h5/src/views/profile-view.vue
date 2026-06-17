@@ -1,13 +1,26 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { showConfirmDialog, showToast } from 'vant'
 import { useAuthStore } from '../stores/auth'
+import { useCollectStore } from '../stores/collect'
 
 const router = useRouter()
 const authStore = useAuthStore()
+const collectStore = useCollectStore()
+
+const recentCollects = computed(() => collectStore.items.slice(0, 3))
 
 function goBack() {
   router.back()
+}
+
+function openCollect() {
+  router.push('/collect')
+}
+
+function openCamera() {
+  router.push('/collect/camera')
 }
 
 async function openMenu() {
@@ -25,7 +38,7 @@ async function openMenu() {
 }
 
 function checkIn() {
-  showToast('打卡功能开发中')
+  openCamera()
 }
 </script>
 
@@ -49,14 +62,14 @@ function checkIn() {
             <div>
               <p class="nickname">{{ authStore.displayName }}</p>
               <p class="stats">
-                <span>城市 {{ authStore.isLoggedIn ? 2 : 0 }}</span>
-                <span>国家 1</span>
+                <span>城市 {{ collectStore.cityCount }}</span>
+                <span>采集 {{ collectStore.count }}</span>
               </p>
             </div>
           </div>
         </div>
         <div class="stamp">
-          <p class="stamp-num">2</p>
+          <p class="stamp-num">{{ collectStore.count }}</p>
           <p class="stamp-label">打卡</p>
         </div>
       </div>
@@ -69,13 +82,16 @@ function checkIn() {
       </div>
     </section>
 
-    <section class="profile-card">
-      <h2 class="section-title">我的采集 · 3</h2>
+    <section class="profile-card" @click="openCollect">
+      <div class="section-row">
+        <h2 class="section-title">我的采集 · {{ collectStore.count }}</h2>
+        <van-icon name="arrow" size="16" color="#c8c9cc" />
+      </div>
       <div class="collect-grid">
-        <div v-for="n in 3" :key="n" class="collect-item">
-          <img :src="`/covers/discover-food.jpg`" alt="采集" />
+        <div v-for="item in recentCollects" :key="item.id" class="collect-item">
+          <img :src="item.photo" :alt="item.locationName" />
         </div>
-        <button type="button" class="collect-empty" aria-label="添加采集">
+        <button type="button" class="collect-empty" aria-label="添加采集" @click.stop="openCamera">
           <van-icon name="photograph" size="22" color="#c8c9cc" />
         </button>
       </div>
@@ -254,6 +270,17 @@ function checkIn() {
   font-size: 17px;
   font-weight: 700;
   color: #111;
+}
+
+.section-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.section-row .section-title {
+  margin: 0;
 }
 
 .collect-grid {
