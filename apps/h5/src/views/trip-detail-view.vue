@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { showConfirmDialog, showToast } from 'vant'
+import { showToast } from 'vant'
+import ConfirmDialog from '../components/confirm-dialog.vue'
 import { useTripStore } from '../stores/trip'
 import { useAuthStore } from '../stores/auth'
 import { useProfileStore } from '../stores/profile'
@@ -15,6 +16,7 @@ const authStore = useAuthStore()
 const profileStore = useProfileStore()
 const detailLoading = ref(false)
 const activeTab = ref<'overview' | 'plan'>('overview')
+const showDeleteDialog = ref(false)
 
 const tripId = computed(() => Number(route.params.id))
 const trip = computed(() => tripStore.tripById(tripId.value))
@@ -45,15 +47,15 @@ function goBack() {
   router.push('/')
 }
 
-async function handleDelete() {
+function openDeleteDialog() {
+  showDeleteDialog.value = true
+}
+
+async function confirmDelete() {
   if (!trip.value) {
     return
   }
   try {
-    await showConfirmDialog({
-      title: '删除行程',
-      message: `确定删除「${trip.value.title}」吗？`,
-    })
     await tripStore.removeTrip(trip.value.id)
     showToast('已删除')
     router.push('/')
@@ -79,7 +81,7 @@ async function handleDelete() {
         <button type="button" class="header-btn" aria-label="分享" @click="showToast('分享开发中')">
           <van-icon name="share-o" size="20" />
         </button>
-        <button type="button" class="header-btn" aria-label="设置" @click="handleDelete">
+        <button type="button" class="header-btn" aria-label="删除" @click="openDeleteDialog">
           <van-icon name="delete-o" size="20" />
         </button>
       </div>
@@ -191,6 +193,15 @@ async function handleDelete() {
         编辑
       </button>
     </footer>
+    <ConfirmDialog
+      v-if="trip"
+      v-model:show="showDeleteDialog"
+      title="删除行程"
+      :message="`确定删除「${trip.title}」吗？`"
+      confirm-text="删除"
+      variant="danger"
+      @confirm="confirmDelete"
+    />
   </div>
 
   <van-empty v-else description="行程不存在">
