@@ -4,13 +4,7 @@ import * as tripsApi from '../api/trips'
 import type { HotTrip, FeaturedTopic } from '../data/discover'
 import type { CreateTripInput, DayPlan, Trip } from '../types/trip'
 import { parseDaysFromDuration } from '../utils/parse-guide'
-
-const THEMES = [
-  'linear-gradient(135deg, #d4ede8 0%, #c5e8e0 100%)',
-  'linear-gradient(135deg, #fdebd3 0%, #f9dcc4 100%)',
-  'linear-gradient(135deg, #e8eef9 0%, #d6e4ff 100%)',
-  'linear-gradient(135deg, #f3e8ff 0%, #e9d5ff 100%)',
-]
+import { pickTripTheme } from '../utils/trip-themes'
 
 const PLACE_TEMPLATES = [
   '中心广场',
@@ -85,6 +79,24 @@ export const useTripStore = defineStore('trip', {
       return trip
     },
 
+    async addEmptyTrip() {
+      const count = this.trips.length
+      const theme = pickTripTheme(count).bg
+      const trip = await tripsApi.createTrip({
+        destination: '待规划',
+        days: 0,
+        preferences: [],
+        title: '新计划旅游',
+        nights: '未设置日期',
+        placeCount: 0,
+        cover: '/covers/default.jpg',
+        theme,
+        dayPlans: [],
+      })
+      upsertTrip(this.trips, trip)
+      return trip
+    },
+
     async addTripFromText(text: string) {
       const trip = await aiApi.importGuide(text)
       upsertTrip(this.trips, trip)
@@ -110,7 +122,7 @@ export const useTripStore = defineStore('trip', {
         nights: item.duration.replace(/\s*·.*/, '').trim(),
         placeCount: item.placeCount,
         cover: item.cover,
-        theme: THEMES[item.id % THEMES.length],
+        theme: pickTripTheme(item.id).bg,
         dayPlans,
       })
       upsertTrip(this.trips, trip)
@@ -130,7 +142,7 @@ export const useTripStore = defineStore('trip', {
         nights: `${days}天${Math.max(days - 1, 0)}晚`,
         placeCount: item.placeCount,
         cover: item.cover,
-        theme: THEMES[(item.id + 2) % THEMES.length],
+        theme: pickTripTheme(item.id + 2).bg,
         dayPlans,
       })
       upsertTrip(this.trips, trip)

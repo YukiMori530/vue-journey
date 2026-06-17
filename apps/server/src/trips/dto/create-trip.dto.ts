@@ -20,7 +20,7 @@ class DayPlanDto {
   day!: number;
 
   @IsArray()
-  @ArrayMinSize(1)
+  @ArrayMinSize(0)
   @ArrayMaxSize(30)
   @IsString({ each: true })
   places!: string[];
@@ -33,7 +33,7 @@ export class CreateTripDto {
   destination!: string;
 
   @IsInt()
-  @Min(1)
+  @Min(0)
   @Max(30)
   days!: number;
 
@@ -69,7 +69,7 @@ export class CreateTripDto {
 
   @IsOptional()
   @IsArray()
-  @ArrayMinSize(1)
+  @ArrayMinSize(0)
   @ArrayMaxSize(30)
   @ValidateNested({ each: true })
   @Type(() => DayPlanDto)

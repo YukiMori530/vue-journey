@@ -1,10 +1,12 @@
 import type { DayPlan } from './trip.types';
 
 const THEMES = [
-  'linear-gradient(135deg, #d4ede8 0%, #c5e8e0 100%)',
-  'linear-gradient(135deg, #fdebd3 0%, #f9dcc4 100%)',
-  'linear-gradient(135deg, #e8eef9 0%, #d6e4ff 100%)',
-  'linear-gradient(135deg, #f3e8ff 0%, #e9d5ff 100%)',
+  '#E6E0F3',
+  '#D1E9E2',
+  '#FFF0C9',
+  '#DCE8F7',
+  '#FCE4EC',
+  '#E8F5E9',
 ];
 
 /** 本地封面路径（由 H5 public/covers 提供，不依赖外网） */
@@ -64,5 +66,8 @@ export function pickTheme(seed: number) {
 }
 
 export function formatNights(days: number) {
+  if (days <= 0) {
+    return '未设置日期';
+  }
   return `${days}天${Math.max(days - 1, 0)}晚`;
 }

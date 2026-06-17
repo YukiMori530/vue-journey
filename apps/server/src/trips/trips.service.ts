@@ -36,7 +36,8 @@ export class TripsService {
   }
 
   async create(dto: CreateTripDto, userId: number): Promise<TripResponse> {
-    const dayPlans = dto.dayPlans ?? mockDayPlans(dto.destination, dto.days);
+    const dayPlans =
+      dto.dayPlans ?? (dto.days > 0 ? mockDayPlans(dto.destination, dto.days) : []);
     const count = await this.prisma.trip.count({ where: { userId } });
 
     const trip = await this.prisma.trip.create({

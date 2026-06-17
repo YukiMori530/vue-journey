@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
+import { onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { showToast } from 'vant'
 import TripCard from '../components/trip-card.vue'
@@ -11,8 +11,6 @@ import { ApiError } from '../api/client'
 const router = useRouter()
 const tripStore = useTripStore()
 const authStore = useAuthStore()
-
-const tripCount = computed(() => tripStore.trips.length)
 
 const greeting = computed(() => {
   const hour = new Date().getHours()
@@ -50,9 +48,10 @@ function openTrip(id: number) {
         <p class="trip-greeting">{{ greeting }}，{{ authStore.displayName }}</p>
         <div class="hero-row">
           <h2 class="section-title">我的计划</h2>
-          <span v-if="!tripStore.loading && tripCount > 0" class="trip-count">
-            {{ tripCount }} 个行程
-          </span>
+          <button type="button" class="filter-chip" @click="showToast('筛选开发中')">
+            <van-icon name="exchange" size="14" />
+            全部
+          </button>
         </div>
       </section>
 
@@ -153,15 +152,21 @@ function openTrip(id: number) {
   letter-spacing: 0.3px;
 }
 
-.trip-count {
+.trip-count,
+.filter-chip {
   flex-shrink: 0;
-  padding: 5px 12px;
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+  padding: 6px 12px;
+  border: none;
   border-radius: 999px;
-  background: rgb(255 255 255 / 75%);
+  background: rgb(255 255 255 / 85%);
   font-size: 12px;
   font-weight: 500;
-  color: #576b95;
-  box-shadow: 0 2px 8px rgb(25 137 250 / 8%);
+  color: #646566;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 5%);
+  cursor: pointer;
 }
 
 .trip-list {
