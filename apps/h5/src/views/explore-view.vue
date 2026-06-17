@@ -13,6 +13,8 @@ import {
 import { useAuthStore } from '../stores/auth'
 import { loadAMap } from '../utils/amap'
 
+const TAB_BAR_HEIGHT = 68
+
 const router = useRouter()
 const authStore = useAuthStore()
 
@@ -25,6 +27,14 @@ const mapError = ref('')
 const selectedCategory = ref<PoiCategory | null>(null)
 const currentCityId = ref(exploreCities[0].id)
 const showCityPicker = ref(false)
+
+const sheetHeight = ref(280)
+const sheetAnchors = ref<number[]>([280, 560])
+const safeAreaBottom = ref(0)
+const isSheetExpanded = computed(() => {
+  const fullAnchor = sheetAnchors.value.at(-1) ?? 560
+  return sheetHeight.value >= fullAnchor - 24
+})
 
 const currentCity = computed(() => getCityById(currentCityId.value))
 
@@ -241,11 +251,43 @@ function openHotCity(city: { name: string }) {
   showToast(`${city.name} 详情即将上线`)
 }
 
+function getSafeAreaBottom() {
+  if (typeof window === 'undefined') {
+    return 0
+  }
+  const probe = document.createElement('div')
+  probe.style.cssText = 'padding-bottom: env(safe-area-inset-bottom); position: fixed; visibility: hidden;'
+  document.body.appendChild(probe)
+  const value = parseFloat(getComputedStyle(probe).paddingBottom) || 0
+  document.body.removeChild(probe)
+  return value
+}
+
+function updateSheetAnchors() {
+  safeAreaBottom.value = getSafeAreaBottom()
+  const tabBarOffset = TAB_BAR_HEIGHT + safeAreaBottom.value
+  const viewportHeight = window.innerHeight
+  const collapsed = Math.round(Math.min(300, viewportHeight * 0.38))
+  const full = Math.round(viewportHeight - tabBarOffset)
+  const wasExpanded = isSheetExpanded.value
+
+  sheetAnchors.value = [collapsed, full]
+  sheetHeight.value = wasExpanded ? full : collapsed
+}
+
+function toggleSheetExpand() {
+  const [collapsed, full] = sheetAnchors.value
+  sheetHeight.value = isSheetExpanded.value ? collapsed : full
+}
+
 onMounted(() => {
+  updateSheetAnchors()
+  window.addEventListener('resize', updateSheetAnchors)
   initMap()
 })
 
 onUnmounted(() => {
+  window.removeEventListener('resize', updateSheetAnchors)
   clearPoiMarkers()
   clearStoryMarkers()
   mapInstance.value?.destroy()
@@ -306,44 +348,55 @@ onUnmounted(() => {
       </button>
     </div>
 
-    <section class="bottom-sheet">
-      <div class="sheet-handle" />
-      <h2 class="sheet-title">为你发现了一些地点合集</h2>
-      <div class="collection-scroll">
-        <button
-          v-for="item in exploreCollections"
-          :key="item.id"
-          type="button"
-          class="collection-card"
-          @click="openCollection(item)"
-        >
-          <CoverImage :src="item.cover" :alt="item.title" img-class="collection-cover" />
-          <p class="collection-title">{{ item.title }}</p>
-        </button>
-      </div>
+    <van-floating-panel
+      v-model:height="sheetHeight"
+      :anchors="sheetAnchors"
+      :duration="0.38"
+      class="explore-sheet"
+      :class="{ 'is-expanded': isSheetExpanded }"
+      safe-area-inset-bottom
+    >
+      <button type="button" class="sheet-handle-wrap" aria-label="展开或收起" @click="toggleSheetExpand">
+        <div class="sheet-handle" />
+      </button>
+      <div class="sheet-content">
+        <h2 class="sheet-title">为你发现了一些地点合集</h2>
+        <div class="collection-scroll">
+          <button
+            v-for="item in exploreCollections"
+            :key="item.id"
+            type="button"
+            class="collection-card"
+            @click="openCollection(item)"
+          >
+            <CoverImage :src="item.cover" :alt="item.title" img-class="collection-cover" />
+            <p class="collection-title">{{ item.title }}</p>
+          </button>
+        </div>
 
-      <div class="hot-city-list">
-        <button
-          v-for="city in hotCities"
-          :key="city.id"
-          type="button"
-          class="hot-city-item"
-          @click="openHotCity(city)"
-        >
-          <CoverImage :src="city.cover" :alt="city.name" img-class="hot-city-cover" />
-          <div class="hot-city-info">
-            <div class="hot-city-head">
-              <h3>{{ city.name }}</h3>
-              <div class="hot-city-tags">
-                <span v-if="city.rankTag" class="tag tag--rank">{{ city.rankTag }}</span>
-                <span class="tag">{{ city.planCount }}</span>
+        <div class="hot-city-list">
+          <button
+            v-for="city in hotCities"
+            :key="city.id"
+            type="button"
+            class="hot-city-item"
+            @click="openHotCity(city)"
+          >
+            <CoverImage :src="city.cover" :alt="city.name" img-class="hot-city-cover" />
+            <div class="hot-city-info">
+              <div class="hot-city-head">
+                <h3>{{ city.name }}</h3>
+                <div class="hot-city-tags">
+                  <span v-if="city.rankTag" class="tag tag--rank">{{ city.rankTag }}</span>
+                  <span class="tag">{{ city.planCount }}</span>
+                </div>
               </div>
+              <p class="hot-city-desc">{{ city.description }}</p>
             </div>
-            <p class="hot-city-desc">{{ city.description }}</p>
-          </div>
-        </button>
+          </button>
+        </div>
       </div>
-    </section>
+    </van-floating-panel>
 
     <van-action-sheet
       v-model:show="showCityPicker"
@@ -367,7 +420,7 @@ onUnmounted(() => {
 .map-area {
   position: absolute;
   inset: 0;
-  bottom: 280px;
+  z-index: 1;
 }
 
 .amap-container {
@@ -507,7 +560,7 @@ onUnmounted(() => {
 .my-location {
   position: absolute;
   right: 16px;
-  bottom: 24px;
+  bottom: calc(364px + env(safe-area-inset-bottom));
   z-index: 2;
   display: flex;
   align-items: center;
@@ -521,28 +574,68 @@ onUnmounted(() => {
   cursor: pointer;
 }
 
-.bottom-sheet {
-  position: fixed;
+.explore-sheet {
+  --van-floating-panel-border-radius: 20px;
+  --van-floating-panel-background: #fff;
+  --van-floating-panel-header-height: 0;
+
   right: 0;
-  bottom: 72px;
+  bottom: calc(68px + env(safe-area-inset-bottom)) !important;
   left: 0;
-  z-index: 10;
+  z-index: 20;
   max-width: 480px;
-  max-height: 280px;
   margin: 0 auto;
-  padding: 8px 0 12px;
-  overflow-y: auto;
-  border-radius: 20px 20px 0 0;
-  background: #fff;
-  box-shadow: 0 -4px 20px rgb(0 0 0 / 8%);
+  box-shadow: 0 -8px 32px rgb(0 0 0 / 10%);
+}
+
+.explore-sheet.is-expanded {
+  --van-floating-panel-border-radius: 0;
+
+  box-shadow: none;
+}
+
+.explore-sheet :deep(.van-floating-panel__content) {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.sheet-handle-wrap {
+  display: block;
+  flex-shrink: 0;
+  width: 100%;
+  padding: 10px 0 4px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
 }
 
 .sheet-handle {
   width: 36px;
   height: 4px;
-  margin: 0 auto 12px;
+  margin: 0 auto;
   border-radius: 2px;
   background: #dcdee0;
+  transition: width 0.25s ease, background 0.25s ease;
+}
+
+.explore-sheet:active .sheet-handle,
+.sheet-handle-wrap:hover .sheet-handle {
+  width: 44px;
+  background: #c8c9cc;
+}
+
+.sheet-content {
+  flex: 1;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.sheet-content::-webkit-scrollbar {
+  display: none;
 }
 
 .sheet-title {
