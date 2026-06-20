@@ -39,7 +39,10 @@ export class AiOrchestratorService {
       : null;
   }
 
-  async planItinerary(dto: PlanItineraryDto): Promise<ItineraryOutput> {
+  async planItinerary(
+    dto: PlanItineraryDto,
+    noteContext?: string,
+  ): Promise<ItineraryOutput> {
     if (!this.client) {
       this.logger.warn('DEEPSEEK_API_KEY 未配置，使用本地 mock 行程');
       return this.mockItinerary(dto);
@@ -48,7 +51,10 @@ export class AiOrchestratorService {
     try {
       return await this.generateItinerary([
         { role: 'system', content: SYSTEM_PROMPT },
-        { role: 'user', content: buildPlanUserPrompt(dto) },
+        {
+          role: 'user',
+          content: buildPlanUserPrompt({ ...dto, noteContext }),
+        },
       ]);
     } catch (error) {
       if (this.shouldFallbackToMock(error)) {
@@ -145,16 +151,28 @@ export class AiOrchestratorService {
   }
 
   private mockItinerary(dto: PlanItineraryDto): ItineraryOutput {
-    const dayPlans = mockDayPlans(dto.destination, dto.days);
+    const prefText = [...dto.preferences, dto.rawQuery ?? ''].join('');
+    const foodFocused =
+      /啤酒|海鲜|美食|逛吃|小吃/.test(prefText) ||
+      dto.preferences.some((item) => /啤酒|海鲜|美食/.test(item));
+
+    const templates = foodFocused
+      ? ['啤酒博物馆', '海鲜市场', '台东步行街', '劈柴院', '奥帆中心酒吧街', '本地海鲜大排档']
+      : ['中心广场', '特色步行街', '本地美食街', '城市公园', '博物馆', '网红咖啡店'];
+
+    const dayPlans = mockDayPlans(dto.destination, dto.days, templates);
 
     return {
       title: buildTitle(dto.destination, dto.days, dto.preferences),
       days: dayPlans.map((day) => ({
         day: day.day,
+        title: foodFocused
+          ? `DAY ${day.day} ${dto.preferences[0] ?? '美食'}之旅`
+          : undefined,
         pois: day.places.map((place, index) => ({
           name: placeName(place),
           duration: 60 + index * 30,
-          category: index % 2 === 0 ? 'sight' : 'food',
+          category: foodFocused ? ('food' as const) : index % 2 === 0 ? ('sight' as const) : ('food' as const),
         })),
       })),
     };

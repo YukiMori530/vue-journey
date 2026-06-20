@@ -37,6 +37,7 @@ export type CreateTripInput = {
   destination: string
   days: number
   preferences: string[]
+  rawQuery?: string
 }
 
 export function normalizeStop(raw: string | TripStop): TripStop {

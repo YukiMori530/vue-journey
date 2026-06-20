@@ -4,6 +4,7 @@ import {
   IsArray,
   IsInt,
   IsNotEmpty,
+  IsOptional,
   IsString,
   Max,
   MaxLength,
@@ -26,4 +27,9 @@ export class PlanItineraryDto {
   @ArrayMaxSize(10)
   @IsString({ each: true })
   preferences!: string[];
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  rawQuery?: string;
 }

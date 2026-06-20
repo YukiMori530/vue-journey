@@ -111,23 +111,32 @@ export class GeoService {
     }
 
     const url = new URL('https://restapi.amap.com/v3/place/text');
-    url.searchParams.set('keywords', keyword);
-    url.searchParams.set('city', city);
-    url.searchParams.set('citylimit', 'true');
-    url.searchParams.set('offset', '1');
-    url.searchParams.set('page', '1');
-    url.searchParams.set('key', this.apiKey);
+    const cityName = city.replace(/(市|县|区)$/, '') || city;
+    const queries = [
+      keyword.includes(cityName) ? keyword : `${cityName}${keyword}`,
+      `${keyword} ${cityName}`,
+      keyword,
+    ];
 
-    try {
-      const response = await fetch(url);
-      const data = (await response.json()) as AmapPlaceResponse;
-      if (data.status === '1' && data.pois?.[0]?.location) {
-        const point = this.parseLocation(data.pois[0].location);
-        this.cache.set(cacheKey, point);
-        return point;
+    for (const keywords of [...new Set(queries)]) {
+      url.searchParams.set('keywords', keywords);
+      url.searchParams.set('city', cityName);
+      url.searchParams.set('citylimit', 'true');
+      url.searchParams.set('offset', '1');
+      url.searchParams.set('page', '1');
+      url.searchParams.set('key', this.apiKey);
+
+      try {
+        const response = await fetch(url);
+        const data = (await response.json()) as AmapPlaceResponse;
+        if (data.status === '1' && data.pois?.[0]?.location) {
+          const point = this.parseLocation(data.pois[0].location);
+          this.cache.set(cacheKey, point);
+          return point;
+        }
+      } catch (error) {
+        this.logger.warn(`地点搜索失败: ${keywords} @ ${cityName}`, error);
       }
-    } catch (error) {
-      this.logger.warn(`地点搜索失败: ${keyword} @ ${city}`, error);
     }
 
     return null;

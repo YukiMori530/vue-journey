@@ -22,6 +22,11 @@ const DESTINATION_HINTS: Record<string, { spots: string[]; foods: string[]; tips
     foods: ['本地赣菜', '赣江鱼鲜'],
     tips: '可沿赣江串联青铜文化主题线路',
   },
+  青岛: {
+    spots: ['啤酒博物馆', '栈桥', '奥帆中心', '台东步行街', '劈柴院'],
+    foods: ['海鲜市场', '啤酒', '台东夜市'],
+    tips: '哈啤配海鲜，台东夜市和营口路海鲜市场本地人常去',
+  },
 }
 
 function pickHints(destination: string) {
@@ -36,13 +41,19 @@ function pickHints(destination: string) {
   }
 }
 
-export function buildPlanGenerationSteps(destination: string, days: number, fullPrompt: string): PlanLogStep[] {
+export function buildPlanGenerationSteps(
+  destination: string,
+  days: number,
+  fullPrompt: string,
+  preferences: string[] = [],
+): PlanLogStep[] {
   const hints = pickHints(destination)
+  const prefHint = preferences.length ? preferences.join('、') : '当地特色'
   const year = new Date().getFullYear()
 
   return [
-    { kind: 'intro', text: `我来帮你规划${destination}${days}日游！先搜索${destination}旅游攻略和最新信息，同时查找主要景点。`, delayMs: 0 },
-    { kind: 'search', text: `正在搜索小红书和全网信息：${destination}${days}日游行程攻略 ${year}`, delayMs: 400 },
+    { kind: 'intro', text: `我来帮你规划${destination}${days}日游！重点围绕「${prefHint}」，先搜索攻略和最新信息。`, delayMs: 0 },
+    { kind: 'search', text: `正在搜索小红书和全网信息：${destination}${prefHint}${days}日游 ${year}`, delayMs: 400 },
     { kind: 'search', text: `正在搜索小红书和全网信息：${destination}${hints.spots[0]}开放时间门票${year}`, delayMs: 450 },
     { kind: 'search', text: `正在搜索小红书和全网信息：${destination}旅游注意事项最佳路线`, delayMs: 400 },
     { kind: 'location', text: `正在搜索${destination}的地点：必去景点（${hints.spots.slice(0, 3).join('、')}等）`, delayMs: 500 },

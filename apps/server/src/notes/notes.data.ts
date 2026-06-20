@@ -129,4 +129,29 @@ export const xhsNotes: XhsNote[] = [
 - 珠宝街
 - 南昌之星`,
   },
+  {
+    id: 'xhs-6',
+    title: '青岛三日｜啤酒海鲜吃到爽',
+    author: '海边吃货',
+    cover: '/covers/default.jpg',
+    destination: '青岛',
+    days: 3,
+    likes: '3.8w',
+    snippet: '啤酒博物馆→台东夜市→劈柴院海鲜，青岛哈啤配海鲜攻略',
+    keywords: ['青岛', '啤酒', '海鲜', '台东'],
+    content: `第1天
+- 青岛啤酒博物馆
+- 台东步行街
+- 营口路海鲜市场
+
+第2天
+- 栈桥
+- 劈柴院
+- 奥帆中心
+
+第3天
+- 石老人海水浴场
+- 小麦岛公园
+- 极地海洋世界`,
+  },
 ]

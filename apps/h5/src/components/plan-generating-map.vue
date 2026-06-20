@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { onUnmounted, ref, shallowRef, watch } from 'vue'
 import { loadAMap } from '../utils/amap'
+import { buildDrivingPath } from '../utils/amap-route'
+import { getDayColor } from '../utils/day-route-colors'
 import type { GeneratingMapStop } from '../utils/plan-generation-script'
 
 const props = defineProps<{
@@ -11,13 +13,14 @@ const props = defineProps<{
 const mapContainer = ref<HTMLElement | null>(null)
 const mapInstance = shallowRef<AMap.Map | null>(null)
 const mapMarkers = shallowRef<AMap.Marker[]>([])
-const mapPolyline = shallowRef<AMap.Polyline | null>(null)
+const mapPolylines = shallowRef<AMap.Polyline[]>([])
 
 function buildMarkerContent(stop: GeneratingMapStop) {
+  const color = getDayColor(stop.day)
   return `
     <div class="plan-gen-map-marker">
-      <span class="plan-gen-map-marker__day">Day${stop.day}</span>
-      <span class="plan-gen-map-marker__num">${stop.order}</span>
+      <span class="plan-gen-map-marker__day" style="background:${color}">Day${stop.day}</span>
+      <span class="plan-gen-map-marker__num" style="background:${color}">${stop.order}</span>
       <span class="plan-gen-map-marker__name">${stop.name}</span>
     </div>
   `
@@ -26,8 +29,8 @@ function buildMarkerContent(stop: GeneratingMapStop) {
 function clearMapOverlays() {
   mapMarkers.value.forEach((marker) => marker.setMap(null))
   mapMarkers.value = []
-  mapPolyline.value?.setMap(null)
-  mapPolyline.value = null
+  mapPolylines.value.forEach((line) => line.setMap(null))
+  mapPolylines.value = []
 }
 
 async function renderMap() {
@@ -36,7 +39,7 @@ async function renderMap() {
   }
 
   try {
-    await loadAMap(['AMap.Polyline'])
+    await loadAMap(['AMap.Polyline', 'AMap.Driving'])
 
     if (!mapInstance.value) {
       mapInstance.value = new AMap.Map(mapContainer.value, {
@@ -54,12 +57,8 @@ async function renderMap() {
       return
     }
 
-    const path: [number, number][] = []
-
     mapMarkers.value = props.stops.map((stop) => {
       const position: [number, number] = [stop.lng, stop.lat]
-      path.push(position)
-
       const marker = new AMap.Marker({
         position,
         content: buildMarkerContent(stop),
@@ -70,17 +69,34 @@ async function renderMap() {
       return marker
     })
 
-    if (path.length > 1) {
-      mapPolyline.value = new AMap.Polyline({
-        path,
-        strokeColor: '#14b8a6',
-        strokeWeight: 6,
-        strokeOpacity: 0.92,
-        lineJoin: 'round',
-        showDir: true,
-      })
-      mapPolyline.value.setMap(mapInstance.value!)
+    const dayGroups = new Map<number, GeneratingMapStop[]>()
+    props.stops.forEach((stop) => {
+      const group = dayGroups.get(stop.day) ?? []
+      group.push(stop)
+      dayGroups.set(stop.day, group)
+    })
+
+    const polylines: AMap.Polyline[] = []
+    for (const [day, group] of dayGroups) {
+      const sorted = [...group].sort((a, b) => a.order - b.order)
+      if (sorted.length < 2) {
+        continue
+      }
+      const path = await buildDrivingPath(sorted)
+      if (path.length > 1) {
+        const polyline = new AMap.Polyline({
+          path,
+          strokeColor: getDayColor(day),
+          strokeWeight: 6,
+          strokeOpacity: 0.92,
+          lineJoin: 'round',
+          showDir: true,
+        })
+        polyline.setMap(mapInstance.value!)
+        polylines.push(polyline)
+      }
     }
+    mapPolylines.value = polylines
 
     mapInstance.value.setFitView(mapMarkers.value, false, [48, 48, 48, 48])
   } catch {
@@ -126,7 +142,6 @@ onUnmounted(() => {
   margin-bottom: 2px;
   padding: 1px 6px;
   border-radius: 6px;
-  background: #14b8a6;
   font-size: 9px;
   font-weight: 700;
   color: #fff;
@@ -140,7 +155,6 @@ onUnmounted(() => {
   height: 28px;
   border: 2px solid #fff;
   border-radius: 50%;
-  background: #1989fa;
   font-size: 12px;
   font-weight: 700;
   color: #fff;

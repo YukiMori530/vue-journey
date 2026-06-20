@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { showToast } from 'vant'
 import PlanGeneratingMap from '../components/plan-generating-map.vue'
@@ -36,7 +36,12 @@ const parsed = computed(() => {
 })
 
 const steps = computed(() =>
-  buildPlanGenerationSteps(parsed.value.destination, parsed.value.days, parsed.value.fullPrompt),
+  buildPlanGenerationSteps(
+    parsed.value.destination,
+    parsed.value.days,
+    parsed.value.fullPrompt,
+    parsed.value.preferences,
+  ),
 )
 
 const visibleLogs = ref<PlanLogStep[]>([])
@@ -50,6 +55,22 @@ const errorMessage = ref('')
 
 let logTimer: ReturnType<typeof setTimeout> | null = null
 let revealTimer: ReturnType<typeof setTimeout> | null = null
+
+const logScroll = ref<HTMLElement | null>(null)
+const previewScroll = ref<HTMLElement | null>(null)
+
+function scrollPanelsToBottom() {
+  nextTick(() => {
+    for (const el of [logScroll.value, previewScroll.value]) {
+      if (el) {
+        el.scrollTop = el.scrollHeight
+      }
+    }
+  })
+}
+
+watch(visibleLogs, scrollPanelsToBottom, { deep: true })
+watch(revealedItems, scrollPanelsToBottom, { deep: true })
 
 const mapCenter = ref<[number, number]>([105.0, 35.0])
 const flatStops = ref<RevealedItem[]>([])
@@ -180,7 +201,8 @@ async function runGeneration() {
     .addTrip({
       destination: parsed.value.destination,
       days: parsed.value.days,
-      preferences: [],
+      preferences: parsed.value.preferences,
+      rawQuery: parsed.value.raw,
     })
     .then(async (trip) => {
       tripResult.value = trip
@@ -264,7 +286,7 @@ onUnmounted(() => {
         </p>
       </div>
 
-      <div v-if="revealedItems.length" class="gen-preview">
+      <div v-if="revealedItems.length" ref="previewScroll" class="gen-preview">
         <template v-for="(item, index) in revealedItems" :key="`${item.day}-${item.order}-${index}`">
           <h3
             v-if="index === 0 || revealedItems[index - 1]?.day !== item.day"

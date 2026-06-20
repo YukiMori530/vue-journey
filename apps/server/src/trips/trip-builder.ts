@@ -28,13 +28,16 @@ const PLACE_TEMPLATES = [
   '古街片区',
 ];
 
-export function mockDayPlans(destination: string, days: number): DayPlan[] {
+export function mockDayPlans(
+  destination: string,
+  days: number,
+  templates: string[] = PLACE_TEMPLATES,
+): DayPlan[] {
   return Array.from({ length: days }, (_, index) => {
     const day = index + 1;
     const count = 2 + (day % 3);
     const places: TripStop[] = Array.from({ length: count }, (_, placeIndex) => {
-      const template =
-        PLACE_TEMPLATES[(day + placeIndex) % PLACE_TEMPLATES.length];
+      const template = templates[(day + placeIndex) % templates.length];
       return { name: `${destination}${template}`, category: 'sight' };
     });
     return { day, places };

@@ -18,6 +18,7 @@ export function itineraryToCreateTripDto(
 ): CreateTripDto {
   const dayPlans = output.days.map((day) => ({
     day: day.day,
+    title: day.title,
     places: day.pois.map((poi) => ({
       name: poi.name,
       category: poi.category,

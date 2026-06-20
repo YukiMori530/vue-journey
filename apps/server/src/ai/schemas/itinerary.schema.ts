@@ -12,6 +12,7 @@ const poiSchema = z.object({
 
 const daySchema = z.object({
   day: z.number().int().positive().max(30),
+  title: z.string().optional(),
   pois: z.array(poiSchema).min(1).max(5),
 });
 
