@@ -71,7 +71,12 @@ async function buildFlatStops(trip: Trip) {
     const dayPlan = trip.dayPlans[dayIndex]
     const normalized = normalizeDayPlan(dayPlan)
     const dayTitle = dayPlan.title ?? `DAY ${dayPlan.day} ${parsed.value.destination}深度游`
-    const places = await resolveDayStops(normalized.places, trip.destination, dayIndex)
+    const needsGeocode = normalized.places.some(
+      (stop) => stop.lng == null || stop.lat == null,
+    )
+    const places = needsGeocode
+      ? await resolveDayStops(normalized.places, trip.destination, dayIndex)
+      : normalized.places
 
     places.forEach((stop, stopIndex) => {
       items.push({
@@ -102,6 +107,24 @@ function clearTimers() {
 }
 
 const logsComplete = ref(false)
+
+function flushRemainingLogs() {
+  if (logsComplete.value) {
+    return
+  }
+  clearTimers()
+  const start = visibleLogs.value.length
+  for (let i = start; i < steps.value.length; i += 1) {
+    visibleLogs.value.push(steps.value[i])
+  }
+  logsComplete.value = true
+  statusText.value = REVEAL_STATUS
+}
+
+function onTripReady() {
+  flushRemainingLogs()
+  tryStartReveal()
+}
 
 function tryStartReveal() {
   if (cancelled.value || phase.value !== 'thinking' || !tripResult.value || !logsComplete.value) {
@@ -141,11 +164,11 @@ async function startReveal() {
     if (cancelled.value) {
       return
     }
-    await sleep(650)
+    await sleep(280)
     revealedItems.value.push(flatStops.value[i])
   }
 
-  await sleep(900)
+  await sleep(400)
   if (!cancelled.value && tripResult.value) {
     phase.value = 'done'
     router.replace(`/trip/${tripResult.value.id}?day=1`)
@@ -162,7 +185,7 @@ async function runGeneration() {
     .then(async (trip) => {
       tripResult.value = trip
       await buildFlatStops(trip)
-      tryStartReveal()
+      onTripReady()
       return trip
     })
     .catch((error: unknown) => {

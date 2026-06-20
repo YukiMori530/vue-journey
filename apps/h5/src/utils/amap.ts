@@ -16,6 +16,7 @@ export async function loadAMap(plugins: string[] = []) {
     throw new Error('缺少高德地图 Key，请检查 apps/h5/.env.local')
   }
 
+  // 再次确保（组件懒加载时 main 已执行过 amap-security.ts）
   window._AMapSecurityConfig = { securityJsCode }
 
   const defaultPlugins = ['AMap.Scale', 'AMap.Geolocation']

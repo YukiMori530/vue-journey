@@ -82,6 +82,9 @@ export async function resolveDayStops(
   dayIndex: number,
 ): Promise<TripStop[]> {
   const missing = stops.filter((stop) => stop.lng == null || stop.lat == null)
+  if (!missing.length) {
+    return stops
+  }
   const coordMap = new Map<string, GeoPoint>()
 
   if (missing.length > 0 && (await isBackendGeoEnabled())) {

@@ -42,8 +42,26 @@ export class GeoService {
     return this.configService.get<string>('AMAP_WEB_KEY') ?? '';
   }
 
-  private sleep(ms: number) {
-    return new Promise((resolve) => setTimeout(resolve, ms));
+  private async mapPool<T, R>(
+    items: T[],
+    concurrency: number,
+    worker: (item: T, index: number) => Promise<R>,
+  ): Promise<R[]> {
+    const results: R[] = new Array(items.length);
+    let cursor = 0;
+
+    async function runWorker() {
+      while (cursor < items.length) {
+        const index = cursor;
+        cursor += 1;
+        results[index] = await worker(items[index], index);
+      }
+    }
+
+    await Promise.all(
+      Array.from({ length: Math.min(concurrency, items.length) }, () => runWorker()),
+    );
+    return results;
   }
 
   private parseLocation(location: string): GeoPoint {
@@ -166,43 +184,50 @@ export class GeoService {
     }
 
     const cityCenter = await this.geocodeCity(destination);
-    const enriched: DayPlan[] = [];
+    type StopTask = {
+      dayIndex: number;
+      stopIndex: number;
+      raw: string | TripStop;
+      name: string;
+    };
 
-    for (let dayIndex = 0; dayIndex < dayPlans.length; dayIndex += 1) {
-      const day = dayPlans[dayIndex];
-      const places: Array<string | TripStop> = [];
-
-      for (let stopIndex = 0; stopIndex < day.places.length; stopIndex += 1) {
-        const raw = day.places[stopIndex];
+    const tasks: StopTask[] = [];
+    dayPlans.forEach((day, dayIndex) => {
+      day.places.forEach((raw, stopIndex) => {
         if (hasCoords(raw)) {
-          places.push(raw);
-          continue;
+          return;
         }
-
-        const name = placeName(raw);
-        const coords = await this.resolveStop(
-          name,
-          destination,
+        tasks.push({
           dayIndex,
           stopIndex,
-          cityCenter,
-        );
+          raw,
+          name: placeName(raw),
+        });
+      });
+    });
 
-        if (coords) {
-          places.push(
-            typeof raw === 'string'
-              ? { name: raw, ...coords }
-              : { ...raw, ...coords },
-          );
-        } else {
-          places.push(raw);
-        }
-
-        await this.sleep(120);
-      }
-
-      enriched.push({ ...day, places });
+    if (!tasks.length) {
+      return dayPlans;
     }
+
+    const coordsList = await this.mapPool(tasks, 4, (task) =>
+      this.resolveStop(task.name, destination, task.dayIndex, task.stopIndex, cityCenter),
+    );
+
+    const enriched = dayPlans.map((day) => ({
+      ...day,
+      places: [...day.places],
+    }));
+
+    tasks.forEach((task, index) => {
+      const coords = coordsList[index];
+      if (!coords) {
+        return;
+      }
+      const raw = task.raw;
+      enriched[task.dayIndex].places[task.stopIndex] =
+        typeof raw === 'string' ? { name: raw, ...coords } : { ...raw, ...coords };
+    });
 
     return enriched;
   }
@@ -211,22 +236,18 @@ export class GeoService {
     destination: string,
     names: string[],
   ): Promise<Array<{ name: string; lng?: number; lat?: number }>> {
-    const cityCenter = await this.geocodeCity(destination);
-    const results: Array<{ name: string; lng?: number; lat?: number }> = [];
-
-    for (let index = 0; index < names.length; index += 1) {
-      const name = names[index];
-      const coords = await this.resolveStop(
-        name,
-        destination,
-        0,
-        index,
-        cityCenter,
-      );
-      results.push(coords ? { name, ...coords } : { name });
-      await this.sleep(120);
+    if (!names.length) {
+      return [];
     }
 
-    return results;
+    const cityCenter = await this.geocodeCity(destination);
+    const coordsList = await this.mapPool(names, 4, (name, index) =>
+      this.resolveStop(name, destination, 0, index, cityCenter),
+    );
+
+    return names.map((name, index) => {
+      const coords = coordsList[index];
+      return coords ? { name, ...coords } : { name };
+    });
   }
 }

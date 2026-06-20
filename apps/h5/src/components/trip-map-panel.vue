@@ -21,14 +21,12 @@ const resolvedDays = ref<Array<{ day: number; places: TripStop[] }>>([])
 async function loadResolvedDays() {
   mapLoading.value = true
   const days = props.trip.dayPlans.map((day) => normalizeDayPlan(day))
-  const next: Array<{ day: number; places: TripStop[] }> = []
-
-  for (let index = 0; index < days.length; index += 1) {
-    const day = days[index]
-    const places = await resolveDayStops(day.places, props.trip.destination, index)
-    next.push({ day: day.day, places })
-  }
-
+  const next = await Promise.all(
+    days.map(async (day, index) => ({
+      day: day.day,
+      places: await resolveDayStops(day.places, props.trip.destination, index),
+    })),
+  )
   resolvedDays.value = next
 }
 

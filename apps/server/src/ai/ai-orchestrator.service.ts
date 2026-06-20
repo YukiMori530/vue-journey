@@ -45,10 +45,18 @@ export class AiOrchestratorService {
       return this.mockItinerary(dto);
     }
 
-    return this.generateItinerary([
-      { role: 'system', content: SYSTEM_PROMPT },
-      { role: 'user', content: buildPlanUserPrompt(dto) },
-    ]);
+    try {
+      return await this.generateItinerary([
+        { role: 'system', content: SYSTEM_PROMPT },
+        { role: 'user', content: buildPlanUserPrompt(dto) },
+      ]);
+    } catch (error) {
+      if (this.shouldFallbackToMock(error)) {
+        this.logger.warn(`DeepSeek 不可用（${this.describeAiError(error)}），回退 mock 行程`);
+        return this.mockItinerary(dto);
+      }
+      throw error;
+    }
   }
 
   async parseGuideText(text: string): Promise<ItineraryOutput> {
@@ -57,10 +65,18 @@ export class AiOrchestratorService {
       return this.mockParseItinerary(text);
     }
 
-    return this.generateItinerary([
-      { role: 'system', content: SYSTEM_PROMPT },
-      { role: 'user', content: buildParseUserPrompt(text) },
-    ]);
+    try {
+      return await this.generateItinerary([
+        { role: 'system', content: SYSTEM_PROMPT },
+        { role: 'user', content: buildParseUserPrompt(text) },
+      ]);
+    } catch (error) {
+      if (this.shouldFallbackToMock(error)) {
+        this.logger.warn(`DeepSeek 不可用（${this.describeAiError(error)}），回退 mock 解析`);
+        return this.mockParseItinerary(text);
+      }
+      throw error;
+    }
   }
 
   private async generateItinerary(
@@ -107,6 +123,25 @@ export class AiOrchestratorService {
     }
 
     throw new Error(`AI 行程生成失败：${lastError}`);
+  }
+
+  private shouldFallbackToMock(error: unknown): boolean {
+    if (error && typeof error === 'object' && 'status' in error) {
+      const status = Number((error as { status: number }).status);
+      return status === 402 || status === 401 || status === 429;
+    }
+    return false;
+  }
+
+  private describeAiError(error: unknown): string {
+    if (error && typeof error === 'object') {
+      const apiError = error as { status?: number; message?: string; error?: { message?: string } };
+      if (apiError.status === 402) {
+        return '账户余额不足，请前往 DeepSeek 控制台充值';
+      }
+      return apiError.error?.message ?? apiError.message ?? 'API 调用失败';
+    }
+    return '未知错误';
   }
 
   private mockItinerary(dto: PlanItineraryDto): ItineraryOutput {
