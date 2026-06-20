@@ -2,9 +2,12 @@ import { createRouter, createWebHistory } from 'vue-router'
 import TripView from '../views/trip-view.vue'
 import ExploreView from '../views/explore-view.vue'
 import CreateView from '../views/create-view.vue'
+import CreatePlanView from '../views/create-plan-view.vue'
+import PlanGeneratingView from '../views/plan-generating-view.vue'
 import TripDetailView from '../views/trip-detail-view.vue'
 import SearchView from '../views/search-view.vue'
 import ImportView from '../views/import-view.vue'
+import XhsSearchView from '../views/xhs-search-view.vue'
 import LoginView from '../views/login-view.vue'
 import ProfileView from '../views/profile-view.vue'
 import ProfileAccountView from '../views/profile-account-view.vue'
@@ -25,6 +28,7 @@ const router = createRouter({
     { path: '/login', name: 'login', component: LoginView, meta: { hideTabBar: true, guestOnly: true } },
     { path: '/search', name: 'search', component: SearchView, meta: { hideTabBar: true, requiresAuth: true } },
     { path: '/import', name: 'import', component: ImportView, meta: { hideTabBar: true, requiresAuth: true } },
+    { path: '/import/xhs', name: 'xhs-search', component: XhsSearchView, meta: { hideTabBar: true, requiresAuth: true } },
     { path: '/profile', name: 'profile', component: ProfileView, meta: { hideTabBar: true, requiresAuth: true } },
     { path: '/profile/account', name: 'profile-account', component: ProfileAccountView, meta: { hideTabBar: true, requiresAuth: true } },
     { path: '/profile/edit', name: 'profile-edit', component: ProfileEditView, meta: { hideTabBar: true, requiresAuth: true } },
@@ -35,6 +39,8 @@ const router = createRouter({
     { path: '/collect', name: 'collect', component: CollectView, meta: { hideTabBar: true, requiresAuth: true } },
     { path: '/collect/camera', name: 'collect-camera', component: CollectCameraView, meta: { hideTabBar: true, requiresAuth: true } },
     { path: '/create', name: 'create', component: CreateView, meta: { hideTabBar: true, requiresAuth: true } },
+    { path: '/create/plan', name: 'create-plan', component: CreatePlanView, meta: { hideTabBar: true, requiresAuth: true } },
+    { path: '/create/generating', name: 'plan-generating', component: PlanGeneratingView, meta: { hideTabBar: true, requiresAuth: true } },
     { path: '/trip/:id', name: 'trip-detail', component: TripDetailView, meta: { hideTabBar: true, requiresAuth: true } },
   ],
 })

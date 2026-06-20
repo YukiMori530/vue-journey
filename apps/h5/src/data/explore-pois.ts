@@ -17,7 +17,7 @@ export interface ExploreCity {
   pois: ExplorePoi[]
 }
 
-/** 按城市组织的 POI，后续可接高德 Place Search / 后端接口 */
+/** 探索页演示用 POI；行程地图坐标请走 /api/geo 或高德 JS 动态查询 */
 export const exploreCities: ExploreCity[] = [
   {
     id: 'beijing',
@@ -82,6 +82,39 @@ export const exploreCities: ExploreCity[] = [
       { id: 'sh-6', name: '新天地', category: '饮品', icon: '☕', lng: 121.475123, lat: 31.220456 },
       { id: 'sh-7', name: '陆家嘴', category: '购物', icon: '🏬', lng: 121.505678, lat: 31.238901 },
       { id: 'sh-8', name: '和平饭店', category: '住宿', icon: '🛏️', lng: 121.489012, lat: 31.240123 },
+    ],
+  },
+  {
+    id: 'dunhuang',
+    name: '敦煌市',
+    center: [94.662289, 40.142128],
+    weather: '☀ 晴 12° - 28°',
+    pois: [
+      { id: 'dh-1', name: '莫高窟景区', category: '景点', icon: '🏛️', lng: 94.809, lat: 40.042 },
+      { id: 'dh-2', name: '鸣沙山月牙泉', category: '景点', icon: '🏜️', lng: 94.671, lat: 40.089 },
+      { id: 'dh-3', name: '敦煌博物馆', category: '景点', icon: '🏛️', lng: 94.662, lat: 40.142 },
+      { id: 'dh-4', name: '沙州夜市', category: '美食', icon: '🍜', lng: 94.658, lat: 40.138 },
+      { id: 'dh-5', name: '阳关', category: '景点', icon: '🏯', lng: 94.058, lat: 39.932 },
+      { id: 'dh-6', name: '雅丹魔鬼城', category: '景点', icon: '🪨', lng: 94.0, lat: 40.5 },
+    ],
+  },
+  {
+    id: 'xingan',
+    name: '新干县',
+    center: [115.386689, 27.740192],
+    weather: '🌤 晴 18° - 28°',
+    pois: [
+      { id: 'xg-1', name: '青铜文化公园', category: '景点', icon: '🏛️', lng: 115.3921, lat: 27.7385 },
+      { id: 'xg-2', name: '新干县博物馆', category: '景点', icon: '🏛️', lng: 115.3842, lat: 27.7418 },
+      { id: 'xg-3', name: '新干博物馆', category: '景点', icon: '🏛️', lng: 115.3842, lat: 27.7418 },
+      { id: 'xg-4', name: '大洋洲商代青铜博物馆', category: '景点', icon: '🏺', lng: 115.4583, lat: 27.8124 },
+      { id: 'xg-5', name: '文昌塔', category: '景点', icon: '🗼', lng: 115.3956, lat: 27.7342 },
+      { id: 'xg-6', name: '彩虹谷', category: '景点', icon: '🌈', lng: 115.3512, lat: 27.6521 },
+      { id: 'xg-7', name: '海木源景区', category: '景点', icon: '🌳', lng: 115.4218, lat: 27.6835 },
+      { id: 'xg-8', name: '新干特色步行街', category: '购物', icon: '🛍️', lng: 115.3889, lat: 27.7396 },
+      { id: 'xg-9', name: '新干本地美食街', category: '美食', icon: '🍜', lng: 115.3854, lat: 27.7371 },
+      { id: 'xg-10', name: '新干城市公园', category: '景点', icon: '🌳', lng: 115.3812, lat: 27.7435 },
+      { id: 'xg-11', name: '赣江', category: '景点', icon: '🌊', lng: 115.3901, lat: 27.7458 },
     ],
   },
 ]

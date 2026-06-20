@@ -10,7 +10,10 @@ JSON 结构：
           "name": "地点名称",
           "duration": 90,
           "category": "sight",
-          "tips": "可选提示"
+          "tips": "可选提示",
+          "description": "100字以内景点介绍",
+          "startTime": "09:00",
+          "endTime": "10:30"
         }
       ]
     }

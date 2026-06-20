@@ -15,6 +15,7 @@ import {
 import {
   buildTitle,
   mockDayPlans,
+  placeName,
 } from '../trips/trip-builder';
 import { parseGuideText } from '../trips/parse-guide';
 import type { PlanItineraryDto } from './dto/plan-itinerary.dto';
@@ -115,8 +116,8 @@ export class AiOrchestratorService {
       title: buildTitle(dto.destination, dto.days, dto.preferences),
       days: dayPlans.map((day) => ({
         day: day.day,
-        pois: day.places.map((name, index) => ({
-          name,
+        pois: day.places.map((place, index) => ({
+          name: placeName(place),
           duration: 60 + index * 30,
           category: index % 2 === 0 ? 'sight' : 'food',
         })),
@@ -131,8 +132,8 @@ export class AiOrchestratorService {
       title: `${parsed.destination}${parsed.days}日导入行程`,
       days: parsed.dayPlans.map((day) => ({
         day: day.day,
-        pois: day.places.map((name, index) => ({
-          name,
+        pois: day.places.map((place, index) => ({
+          name: placeName(place),
           duration: 60 + index * 20,
           category: 'sight' as const,
         })),

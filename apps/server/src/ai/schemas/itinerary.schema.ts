@@ -5,6 +5,9 @@ const poiSchema = z.object({
   duration: z.number().int().positive().max(480),
   category: z.enum(['sight', 'food', 'hotel', 'transport']),
   tips: z.string().optional(),
+  description: z.string().optional(),
+  startTime: z.string().optional(),
+  endTime: z.string().optional(),
 });
 
 const daySchema = z.object({

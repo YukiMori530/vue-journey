@@ -1,6 +1,15 @@
+export interface TripStop {
+  name: string;
+  lng?: number;
+  lat?: number;
+  category?: string;
+  duration?: number;
+  tips?: string;
+}
+
 export interface DayPlan {
   day: number;
-  places: string[];
+  places: Array<string | TripStop>;
 }
 
 export interface TripResponse {

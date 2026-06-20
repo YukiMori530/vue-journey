@@ -40,6 +40,10 @@ function openPhotoPicker() {
   router.push('/collect/camera')
 }
 
+function openXhsSearch() {
+  router.push('/import/xhs')
+}
+
 async function handleImport() {
   if (!guideText.value.trim()) {
     showToast('请粘贴攻略文本或链接内容')
@@ -50,7 +54,7 @@ async function handleImport() {
   try {
     const trip = await tripStore.addTripFromText(guideText.value)
     showToast('识别成功')
-    router.push(`/trip/${trip.id}`)
+    router.push(`/trip/${trip.id}?day=1`)
   } catch (error) {
     const message = error instanceof ApiError ? error.message : '导入失败，请确认后端已启动'
     showToast(message)
@@ -98,6 +102,15 @@ async function handleImport() {
         >
           {{ loading ? '识别中...' : '开始识别' }}
         </button>
+      </section>
+
+      <section class="import-card import-card--xhs" @click="openXhsSearch">
+        <div class="card-head">
+          <van-icon name="fire-o" size="18" color="#ff2442" />
+          <h2>搜索小红书笔记</h2>
+        </div>
+        <p class="card-desc">按目的地搜索精选笔记，一键导入并在地图上查看每日路线</p>
+        <span class="card-link">去搜索 ></span>
       </section>
 
       <section
@@ -170,6 +183,18 @@ async function handleImport() {
 
 .import-card--active {
   border: 2px solid #111;
+}
+
+.import-card--xhs {
+  cursor: pointer;
+  background: linear-gradient(135deg, #fff5f5 0%, #fff 100%);
+  border: 1px solid rgb(255 36 66 / 12%);
+}
+
+.card-link {
+  font-size: 13px;
+  font-weight: 600;
+  color: #ff2442;
 }
 
 .import-card--muted {

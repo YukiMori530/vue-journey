@@ -8,7 +8,7 @@ declare global {
   }
 }
 
-export async function loadAMap() {
+export async function loadAMap(plugins: string[] = []) {
   const key = import.meta.env.VITE_AMAP_KEY
   const securityJsCode = import.meta.env.VITE_AMAP_SECURITY_CODE
 
@@ -18,9 +18,12 @@ export async function loadAMap() {
 
   window._AMapSecurityConfig = { securityJsCode }
 
+  const defaultPlugins = ['AMap.Scale', 'AMap.Geolocation']
+  const merged = [...new Set([...defaultPlugins, ...plugins])]
+
   return AMapLoader.load({
     key,
     version: '2.0',
-    plugins: ['AMap.Scale', 'AMap.Geolocation'],
+    plugins: merged,
   })
 }

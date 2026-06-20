@@ -4,6 +4,8 @@ import { AiModule } from './ai/ai.module';
 import { AuthModule } from './auth/auth.module';
 import { HealthModule } from './health/health.module';
 import { PrismaModule } from './prisma/prisma.module';
+import { NotesModule } from './notes/notes.module';
+import { GeoModule } from './geo/geo.module';
 import { TripsModule } from './trips/trips.module';
 
 @Module({
@@ -14,6 +16,8 @@ import { TripsModule } from './trips/trips.module';
     HealthModule,
     TripsModule,
     AiModule,
+    NotesModule,
+    GeoModule,
   ],
 })
 export class AppModule {}

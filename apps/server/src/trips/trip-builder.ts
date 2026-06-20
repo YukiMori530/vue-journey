@@ -1,4 +1,4 @@
-import type { DayPlan } from './trip.types';
+import type { DayPlan, TripStop } from './trip.types';
 
 const THEMES = [
   '#E6E0F3',
@@ -32,10 +32,10 @@ export function mockDayPlans(destination: string, days: number): DayPlan[] {
   return Array.from({ length: days }, (_, index) => {
     const day = index + 1;
     const count = 2 + (day % 3);
-    const places = Array.from({ length: count }, (_, placeIndex) => {
+    const places: TripStop[] = Array.from({ length: count }, (_, placeIndex) => {
       const template =
         PLACE_TEMPLATES[(day + placeIndex) % PLACE_TEMPLATES.length];
-      return `${destination}${template}`;
+      return { name: `${destination}${template}`, category: 'sight' };
     });
     return { day, places };
   });
@@ -55,6 +55,10 @@ export function buildTitle(
 
 export function countPlaces(dayPlans: DayPlan[]) {
   return dayPlans.reduce((sum, day) => sum + day.places.length, 0);
+}
+
+export function placeName(place: string | TripStop): string {
+  return typeof place === 'string' ? place : place.name;
 }
 
 export function pickCover(seed: number) {

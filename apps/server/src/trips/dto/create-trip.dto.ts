@@ -13,6 +13,30 @@ import {
   ValidateNested,
 } from 'class-validator';
 
+class TripStopDto {
+  @IsString()
+  @IsNotEmpty()
+  name!: string;
+
+  @IsOptional()
+  lng?: number;
+
+  @IsOptional()
+  lat?: number;
+
+  @IsOptional()
+  @IsString()
+  category?: string;
+
+  @IsOptional()
+  @IsInt()
+  duration?: number;
+
+  @IsOptional()
+  @IsString()
+  tips?: string;
+}
+
 class DayPlanDto {
   @IsInt()
   @Min(1)
@@ -21,8 +45,7 @@ class DayPlanDto {
   @IsArray()
   @ArrayMinSize(0)
   @ArrayMaxSize(30)
-  @IsString({ each: true })
-  places!: string[];
+  places!: Array<string | TripStopDto>;
 }
 
 export class CreateTripDto {
