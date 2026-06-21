@@ -6,14 +6,13 @@ import PlanGeneratingMap from '../components/plan-generating-map.vue'
 import type { GeneratingMapStop } from '../utils/plan-generation-script'
 import { useTripStore } from '../stores/trip'
 import { ApiError } from '../api/client'
+import type { PlanStreamLog } from '../api/ai'
 import type { Trip, TripStop } from '../types/trip'
 import { normalizeDayPlan } from '../types/trip'
 import { parseTripPrompt } from '../utils/parse-trip-prompt'
 import {
-  buildPlanGenerationSteps,
   GENERATING_STATUS,
   REVEAL_STATUS,
-  type PlanLogStep,
 } from '../utils/plan-generation-script'
 import { enrichStop } from '../utils/enrich-trip-stops'
 import { geocodeCityCenter, resolveDayStops } from '../utils/trip-geocode'
@@ -35,16 +34,7 @@ const parsed = computed(() => {
   return parseTripPrompt(q, days)
 })
 
-const steps = computed(() =>
-  buildPlanGenerationSteps(
-    parsed.value.destination,
-    parsed.value.days,
-    parsed.value.fullPrompt,
-    parsed.value.preferences,
-  ),
-)
-
-const visibleLogs = ref<PlanLogStep[]>([])
+const visibleLogs = ref<PlanStreamLog[]>([])
 const thinkingExpanded = ref(true)
 const statusText = ref(GENERATING_STATUS)
 const phase = ref<'thinking' | 'revealing' | 'done'>('thinking')
@@ -129,21 +119,19 @@ function clearTimers() {
 
 const logsComplete = ref(false)
 
+function onAgentLog(log: PlanStreamLog) {
+  visibleLogs.value.push(log)
+  if (log.kind === 'summary') {
+    statusText.value = REVEAL_STATUS
+  }
+}
+
 function flushRemainingLogs() {
-  if (logsComplete.value) {
-    return
-  }
-  clearTimers()
-  const start = visibleLogs.value.length
-  for (let i = start; i < steps.value.length; i += 1) {
-    visibleLogs.value.push(steps.value[i])
-  }
   logsComplete.value = true
   statusText.value = REVEAL_STATUS
 }
 
 function onTripReady() {
-  flushRemainingLogs()
   tryStartReveal()
 }
 
@@ -152,25 +140,6 @@ function tryStartReveal() {
     return
   }
   startReveal()
-}
-
-function scheduleLogStep(index: number) {
-  if (cancelled.value || index >= steps.value.length) {
-    if (!cancelled.value) {
-      logsComplete.value = true
-      tryStartReveal()
-    }
-    return
-  }
-
-  const step = steps.value[index]
-  logTimer = setTimeout(() => {
-    visibleLogs.value.push(step)
-    if (step.kind === 'summary') {
-      statusText.value = REVEAL_STATUS
-    }
-    scheduleLogStep(index + 1)
-  }, step.delayMs)
 }
 
 async function startReveal() {
@@ -198,15 +167,19 @@ async function startReveal() {
 
 async function runGeneration() {
   const apiPromise = tripStore
-    .addTrip({
-      destination: parsed.value.destination,
-      days: parsed.value.days,
-      preferences: parsed.value.preferences,
-      rawQuery: parsed.value.raw,
-    })
+    .addTrip(
+      {
+        destination: parsed.value.destination,
+        days: parsed.value.days,
+        preferences: parsed.value.preferences,
+        rawQuery: parsed.value.raw,
+      },
+      onAgentLog,
+    )
     .then(async (trip) => {
       tripResult.value = trip
       await buildFlatStops(trip)
+      flushRemainingLogs()
       onTripReady()
       return trip
     })
@@ -218,8 +191,6 @@ async function runGeneration() {
       showToast(errorMessage.value)
       return null
     })
-
-  scheduleLogStep(0)
 
   const trip = await apiPromise
   if (cancelled.value) {
@@ -269,7 +240,7 @@ onUnmounted(() => {
 
       <button type="button" class="gen-think-toggle" @click="thinkingExpanded = !thinkingExpanded">
         <span class="gen-think-toggle__dots">✦</span>
-        <span>深度思考完成（AI 生成）</span>
+        <span>{{ phase === 'done' ? '深度思考完成' : '深度思考中…' }}（AI Agent）</span>
         <van-icon :name="thinkingExpanded ? 'arrow-up' : 'arrow-down'" size="14" color="#969799" />
       </button>
 

@@ -73,8 +73,12 @@ export const useTripStore = defineStore('trip', {
       return trip
     },
 
-    async addTrip(input: CreateTripInput) {
-      const trip = await aiApi.planTrip(input)
+    async addTrip(input: CreateTripInput, onLog?: (log: aiApi.PlanStreamLog) => void) {
+      const trip = onLog
+        ? await aiApi.planTripStream(input, onLog, (text) => {
+            onLog({ kind: 'location', text })
+          })
+        : await aiApi.planTrip(input)
       upsertTrip(this.trips, trip)
       return trip
     },

@@ -1,4 +1,5 @@
-import { Body, Controller, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Post, Res, UseGuards } from '@nestjs/common';
+import type { Response } from 'express';
 import { PrismaService } from '../prisma/prisma.service';
 import { parseGuideText } from '../trips/parse-guide';
 import { TripsService } from '../trips/trips.service';
@@ -7,50 +8,82 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import type { AuthUser } from '../auth/auth.types';
 import { AiOrchestratorService } from './ai-orchestrator.service';
 import { GeoService } from '../geo/geo.service';
-import { NotesService } from '../notes/notes.service';
 import { ParseGuideDto } from './dto/parse-guide.dto';
 import { PlanItineraryDto } from './dto/plan-itinerary.dto';
 import { itineraryToCreateTripDto } from './itinerary.mapper';
+import { PlanAgentService } from './plan-agent.service';
+import type { PlanAgentLog } from './plan-agent.types';
 
 @Controller('ai')
 @UseGuards(JwtAuthGuard)
 export class AiController {
   constructor(
     private readonly aiOrchestrator: AiOrchestratorService,
+    private readonly planAgent: PlanAgentService,
     private readonly tripsService: TripsService,
     private readonly geoService: GeoService,
-    private readonly notesService: NotesService,
     private readonly prisma: PrismaService,
   ) {}
 
-  private buildNoteContext(destination: string, preferences: string[], rawQuery?: string) {
-    const query = [destination, ...preferences, rawQuery ?? ''].filter(Boolean).join(' ');
-    const notes = this.notesService.search(query).slice(0, 3);
-    if (!notes.length) {
-      const fallback = this.notesService.search(destination).slice(0, 2);
-      return fallback
-        .map((note) => `【${note.title}】\n${note.content}`)
-        .join('\n\n');
-    }
-    return notes.map((note) => `【${note.title}】\n${note.content}`).join('\n\n');
-  }
-
-  @Post('plan')
-  async plan(@CurrentUser() user: AuthUser, @Body() dto: PlanItineraryDto) {
-    const noteContext = this.buildNoteContext(
-      dto.destination,
-      dto.preferences,
-      dto.rawQuery,
-    );
-    const itinerary = await this.aiOrchestrator.planItinerary(dto, noteContext);
-    const count = await this.prisma.trip.count({ where: { userId: user.id } });
+  private async createTripFromPlan(dto: PlanItineraryDto, userId: number) {
+    const logs: PlanAgentLog[] = [];
+    const itinerary = await this.planAgent.planItinerary(dto, (log) => {
+      logs.push(log);
+    });
+    const count = await this.prisma.trip.count({ where: { userId } });
     const createDto = itineraryToCreateTripDto(itinerary, dto, count);
     createDto.dayPlans = await this.geoService.enrichDayPlans(
       createDto.dayPlans ?? [],
       dto.destination,
     );
-    const data = await this.tripsService.create(createDto, user.id);
-    return { data, message: 'planned' };
+    const data = await this.tripsService.create(createDto, userId);
+    return { data, logs };
+  }
+
+  @Post('plan')
+  async plan(@CurrentUser() user: AuthUser, @Body() dto: PlanItineraryDto) {
+    const { data, logs } = await this.createTripFromPlan(dto, user.id);
+    return { data, logs, message: 'planned' };
+  }
+
+  @Post('plan/stream')
+  async planStream(
+    @CurrentUser() user: AuthUser,
+    @Body() dto: PlanItineraryDto,
+    @Res() res: Response,
+  ) {
+    res.setHeader('Content-Type', 'application/x-ndjson; charset=utf-8');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.flushHeaders?.();
+
+    const write = (payload: Record<string, unknown>) => {
+      res.write(`${JSON.stringify(payload)}\n`);
+    };
+
+    try {
+      const itinerary = await this.planAgent.planItinerary(dto, (log) => {
+        write({ type: 'log', kind: log.kind, text: log.text });
+      });
+
+      write({ type: 'status', text: '正在定位地点并保存行程…' });
+
+      const count = await this.prisma.trip.count({ where: { userId: user.id } });
+      const createDto = itineraryToCreateTripDto(itinerary, dto, count);
+      createDto.dayPlans = await this.geoService.enrichDayPlans(
+        createDto.dayPlans ?? [],
+        dto.destination,
+      );
+      const data = await this.tripsService.create(createDto, user.id);
+
+      write({ type: 'done', data });
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : '行程规划失败';
+      write({ type: 'error', message });
+    } finally {
+      res.end();
+    }
   }
 
   @Post('import')
