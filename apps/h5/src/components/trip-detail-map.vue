@@ -1,24 +1,21 @@
 <script setup lang="ts">
 import { onUnmounted, ref, shallowRef, watch } from 'vue'
 import { showToast } from 'vant'
-import type { Trip, TripStop } from '../types/trip'
-import { enrichDayPlan } from '../utils/enrich-trip-stops'
-import { resolveDayStops } from '../utils/trip-geocode'
+import type { TripStop } from '../types/trip'
 import { buildDrivingPath } from '../utils/amap-route'
 import { getDayColor } from '../utils/day-route-colors'
 import { loadAMap } from '../utils/amap'
 
 const props = defineProps<{
-  trip: Trip
   day: number
+  stops: TripStop[]
+  loading?: boolean
 }>()
 
 const mapContainer = ref<HTMLElement | null>(null)
 const mapInstance = shallowRef<AMap.Map | null>(null)
 const mapMarkers = shallowRef<AMap.Marker[]>([])
 const mapPolylines = shallowRef<AMap.Polyline[]>([])
-const dayStops = ref<TripStop[]>([])
-const geocoding = ref(false)
 
 function buildMarkerContent(order: number, name: string, day: number) {
   const color = getDayColor(day)
@@ -37,24 +34,13 @@ function clearMapOverlays() {
   mapPolylines.value = []
 }
 
-async function loadDayStops() {
-  const dayPlan = props.trip.dayPlans.find((item) => item.day === props.day)
-  if (!dayPlan) {
-    dayStops.value = []
+async function renderMap() {
+  if (!mapContainer.value || !props.stops.length) {
     return
   }
 
-  geocoding.value = true
-  try {
-    const enriched = enrichDayPlan(dayPlan, props.trip.destination)
-    dayStops.value = await resolveDayStops(enriched.places, props.trip.destination, props.day - 1)
-  } finally {
-    geocoding.value = false
-  }
-}
-
-async function renderMap() {
-  if (!mapContainer.value || !dayStops.value.length) {
+  const located = props.stops.filter((stop) => stop.lng != null && stop.lat != null)
+  if (!located.length) {
     return
   }
 
@@ -62,7 +48,7 @@ async function renderMap() {
     await loadAMap(['AMap.Polyline', 'AMap.Driving'])
 
     if (!mapInstance.value) {
-      const first = dayStops.value[0]
+      const first = located[0]
       mapInstance.value = new AMap.Map(mapContainer.value, {
         zoom: 13,
         center: [first.lng!, first.lat!],
@@ -73,7 +59,7 @@ async function renderMap() {
 
     clearMapOverlays()
 
-    mapMarkers.value = dayStops.value.map((stop, index) => {
+    mapMarkers.value = located.map((stop, index) => {
       const position: [number, number] = [stop.lng!, stop.lat!]
       const marker = new AMap.Marker({
         position,
@@ -85,7 +71,9 @@ async function renderMap() {
       return marker
     })
 
-    const routePath = await buildDrivingPath(dayStops.value as Array<{ lng: number; lat: number }>)
+    const routePath = await buildDrivingPath(
+      located as Array<{ lng: number; lat: number }>,
+    )
     if (routePath.length > 1) {
       const polyline = new AMap.Polyline({
         path: routePath,
@@ -106,9 +94,8 @@ async function renderMap() {
 }
 
 watch(
-  () => [props.trip.id, props.day, props.trip.dayPlans],
-  async () => {
-    await loadDayStops()
+  () => [props.day, props.stops],
+  () => {
     setTimeout(renderMap, 80)
   },
   { immediate: true, deep: true },
@@ -124,7 +111,7 @@ onUnmounted(() => {
 <template>
   <div class="trip-detail-map-wrap">
     <div ref="mapContainer" class="trip-detail-map" />
-    <van-loading v-if="geocoding" class="trip-detail-map__loading" vertical size="20">
+    <van-loading v-if="loading" class="trip-detail-map__loading" vertical size="20">
       定位中…
     </van-loading>
   </div>

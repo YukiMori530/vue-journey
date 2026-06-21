@@ -1,5 +1,5 @@
 import type { DayPlan, TripStop } from '../types/trip'
-import { DESTINATION_COVERS } from './trip-covers'
+import { pickStopCover } from './stop-covers'
 
 const CATEGORY_LABEL: Record<string, string> = {
   sight: '景点',
@@ -17,15 +17,6 @@ export function getDayTheme(day: number, destination: string): string {
   return `DAY ${day} ${destination}${theme}`
 }
 
-function defaultCover(destination: string, category?: string) {
-  if (destination.includes('成都')) return '/covers/chengdu.jpg'
-  if (destination.includes('烟台')) return '/covers/yantai.jpg'
-  if (destination.includes('北京')) return '/covers/beijing.jpg'
-  if (destination.includes('上海')) return '/covers/shanghai.jpg'
-  if (category === 'food') return '/covers/discover-food.jpg'
-  return DESTINATION_COVERS[destination] ?? '/covers/default.jpg'
-}
-
 export function enrichStop(stop: TripStop, index: number, destination: string): TripStop {
   const startHour = 9 + index * 2
   const endHour = startHour + 1
@@ -39,10 +30,8 @@ export function enrichStop(stop: TripStop, index: number, destination: string): 
       stop.description ??
       stop.tips ??
       `${stop.name}是当地值得停留的一站，建议预留 ${stop.duration ?? 90} 分钟慢慢体验。`,
-    cover: stop.cover ?? defaultCover(destination, stop.category),
+    cover: stop.cover ?? pickStopCover(stop.name, stop.category, index),
     categoryLabel: stop.categoryLabel ?? CATEGORY_LABEL[stop.category ?? 'sight'] ?? '景点',
-    distanceKm: stop.distanceKm ?? (index > 0 ? Number((4 + index * 4.2).toFixed(1)) : undefined),
-    driveMinutes: stop.driveMinutes ?? (index > 0 ? Math.round(8 + index * 6) : undefined),
   }
 }
 

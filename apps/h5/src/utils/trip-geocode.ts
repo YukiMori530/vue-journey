@@ -5,7 +5,15 @@ import {
   searchPlaceByJs,
   type GeoPoint,
 } from './amap-geocode'
+import {
+  buildPlaceQueries,
+  fallbackCoordsNear,
+  isCoordNearCluster,
+  isCoordPlausible,
+  isCoordTooCloseToAny,
+} from './geo-distance'
 import type { TripStop } from '../types/trip'
+import { attachDriveSegments } from './route-order'
 
 let backendGeoEnabled: boolean | null = null
 
@@ -20,11 +28,6 @@ async function isBackendGeoEnabled() {
     backendGeoEnabled = false
   }
   return backendGeoEnabled
-}
-
-function stripDestinationPrefix(name: string, destination: string) {
-  const city = destination.replace(/(市|县|区)$/, '')
-  return name.replace(new RegExp(`^${city}`), '').trim() || name
 }
 
 export async function geocodeCityCenter(destination: string): Promise<GeoPoint | null> {
@@ -45,32 +48,71 @@ export async function geocodeCityCenter(destination: string): Promise<GeoPoint |
 async function resolveSingleStop(
   stop: TripStop,
   destination: string,
-  dayIndex: number,
   stopIndex: number,
   cityCenter: GeoPoint | null,
+  clusterAnchors: GeoPoint[],
   coordMap: Map<string, GeoPoint>,
 ): Promise<TripStop> {
-  if (stop.lng != null && stop.lat != null) {
+  const anchor = clusterAnchors.length
+    ? {
+        lng: clusterAnchors.reduce((sum, item) => sum + item.lng, 0) / clusterAnchors.length,
+        lat: clusterAnchors.reduce((sum, item) => sum + item.lat, 0) / clusterAnchors.length,
+      }
+    : cityCenter
+
+  if (
+    stop.lng != null &&
+    stop.lat != null &&
+    isCoordPlausible({ lng: stop.lng, lat: stop.lat }, anchor) &&
+    isCoordNearCluster({ lng: stop.lng, lat: stop.lat }, clusterAnchors) &&
+    !isCoordTooCloseToAny({ lng: stop.lng, lat: stop.lat }, clusterAnchors)
+  ) {
     return stop
   }
 
   const mapped = coordMap.get(stop.name)
-  if (mapped) {
+  if (
+    mapped &&
+    isCoordPlausible(mapped, anchor) &&
+    isCoordNearCluster(mapped, clusterAnchors) &&
+    !isCoordTooCloseToAny(mapped, clusterAnchors)
+  ) {
     return { ...stop, ...mapped }
   }
 
   const city = destination.replace(/(市|县|区)$/, '') || destination
-  let point = await searchPlaceByJs(stop.name, city)
+  let point: GeoPoint | null = null
 
-  if (!point) {
-    const stripped = stripDestinationPrefix(stop.name, destination)
-    if (stripped !== stop.name) {
-      point = await searchPlaceByJs(stripped, city)
+  for (const query of buildPlaceQueries(stop.name, city)) {
+    point = await searchPlaceByJs(query, city, anchor, clusterAnchors)
+    if (point) {
+      break
     }
   }
 
   if (!point && cityCenter) {
-    point = fallbackCoords(cityCenter, dayIndex, stopIndex)
+    point = await geocodeCityByJs(
+      stop.name.includes(city) ? stop.name : `${city}市${stop.name}`,
+    )
+    if (
+      point &&
+      (!isCoordPlausible(point, anchor) ||
+        !isCoordNearCluster(point, clusterAnchors))
+    ) {
+      point = null
+    }
+  }
+
+  if (!point && anchor) {
+    let fallback = fallbackCoordsNear(anchor, stopIndex)
+    let guard = 0
+    while (isCoordTooCloseToAny(fallback, clusterAnchors) && guard < 6) {
+      guard += 1
+      fallback = fallbackCoordsNear(anchor, stopIndex + guard)
+    }
+    point = fallback
+  } else if (!point && cityCenter) {
+    point = fallbackCoords(cityCenter, 0, stopIndex)
   }
 
   return point ? { ...stop, ...point } : stop
@@ -81,21 +123,30 @@ export async function resolveDayStops(
   destination: string,
   dayIndex: number,
 ): Promise<TripStop[]> {
-  const missing = stops.filter((stop) => stop.lng == null || stop.lat == null)
-  if (!missing.length) {
-    return stops
-  }
+  const cityCenter = await geocodeCityCenter(destination)
   const coordMap = new Map<string, GeoPoint>()
+  const clusterAnchors: GeoPoint[] = []
 
-  if (missing.length > 0 && (await isBackendGeoEnabled())) {
+  const needsLookup = stops.some(
+    (stop) =>
+      stop.lng == null ||
+      stop.lat == null ||
+      !isCoordPlausible({ lng: stop.lng!, lat: stop.lat! }, cityCenter) ||
+      !isCoordNearCluster({ lng: stop.lng!, lat: stop.lat! }, clusterAnchors),
+  )
+
+  if (needsLookup && (await isBackendGeoEnabled())) {
     try {
       const batch = await geoApi.batchGeocode(
         destination,
-        missing.map((stop) => stop.name),
+        stops.map((stop) => stop.name),
       )
       batch.forEach((item) => {
         if (item.lng != null && item.lat != null) {
-          coordMap.set(item.name, { lng: item.lng, lat: item.lat })
+          const point = { lng: item.lng, lat: item.lat }
+          if (isCoordPlausible(point, cityCenter)) {
+            coordMap.set(item.name, point)
+          }
         }
       })
     } catch {
@@ -103,13 +154,23 @@ export async function resolveDayStops(
     }
   }
 
-  const cityCenter = missing.length > 0 ? await geocodeCityCenter(destination) : null
+  const resolved: TripStop[] = []
+  for (let index = 0; index < stops.length; index += 1) {
+    const stop = await resolveSingleStop(
+      stops[index],
+      destination,
+      index,
+      cityCenter,
+      clusterAnchors,
+      coordMap,
+    )
+    resolved.push(stop)
+    if (stop.lng != null && stop.lat != null) {
+      clusterAnchors.push({ lng: stop.lng, lat: stop.lat })
+    }
+  }
 
-  return Promise.all(
-    stops.map((stop, index) =>
-      resolveSingleStop(stop, destination, dayIndex, index, cityCenter, coordMap),
-    ),
-  )
+  return attachDriveSegments(resolved)
 }
 
 export async function resolveTripStops(

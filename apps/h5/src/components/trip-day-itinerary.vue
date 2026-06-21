@@ -1,28 +1,24 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import type { DayPlan, Trip } from '../types/trip'
-import { enrichDayPlan } from '../utils/enrich-trip-stops'
+import type { TripStop } from '../types/trip'
+import { enrichStop } from '../utils/enrich-trip-stops'
 
 const props = defineProps<{
-  trip: Trip
-  day: number
+  title: string
+  destination: string
+  stops: TripStop[]
 }>()
 
-const dayPlan = computed(() => props.trip.dayPlans.find((item) => item.day === props.day))
-
-const enriched = computed(() => {
-  if (!dayPlan.value) {
-    return null
-  }
-  return enrichDayPlan(dayPlan.value as DayPlan, props.trip.destination)
-})
+const enrichedStops = computed(() =>
+  props.stops.map((stop, index) => enrichStop(stop, index, props.destination)),
+)
 </script>
 
 <template>
-  <div v-if="enriched" class="day-itinerary">
-    <h2 class="day-itinerary__title">{{ enriched.title }}</h2>
+  <div class="day-itinerary">
+    <h2 class="day-itinerary__title">{{ title }}</h2>
 
-    <template v-for="(stop, index) in enriched.places" :key="`${stop.name}-${index}`">
+    <template v-for="(stop, index) in enrichedStops" :key="`${stop.name}-${index}`">
       <div v-if="index > 0 && stop.distanceKm" class="travel-segment">
         <van-icon name="logistics" size="14" color="#969799" />
         <span>{{ stop.distanceKm }} 公里 · {{ stop.driveMinutes }} 分钟</span>

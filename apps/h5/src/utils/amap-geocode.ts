@@ -1,9 +1,15 @@
 import { loadAMap } from './amap'
+import {
+  buildPlaceQueries,
+  distanceKm,
+  isCoordNearCluster,
+  isCoordPlausible,
+  isCoordTooCloseToAny,
+  poiNameScore,
+  type GeoPoint,
+} from './geo-distance'
 
-export interface GeoPoint {
-  lng: number
-  lat: number
-}
+export type { GeoPoint }
 
 const memoryCache = new Map<string, GeoPoint>()
 
@@ -47,13 +53,55 @@ export async function geocodeCityByJs(keyword: string): Promise<GeoPoint | null>
   }
 }
 
+function pickBestJsPoi(
+  pois: Array<{ name: string; location: { lng: number; lat: number } }>,
+  keyword: string,
+  anchor: GeoPoint | null,
+  clusterAnchors: GeoPoint[],
+): GeoPoint | null {
+  const candidates = pois
+    .filter((poi) => poi.location)
+    .map((poi) => ({
+      point: { lng: poi.location.lng, lat: poi.location.lat },
+      score: poiNameScore(poi.name, keyword),
+    }))
+    .filter(({ point }) => !isCoordTooCloseToAny(point, clusterAnchors))
+    .filter(({ point }) => (anchor ? isCoordPlausible(point, anchor) : true))
+    .filter(({ point }) =>
+      clusterAnchors.length ? isCoordNearCluster(point, clusterAnchors) : true,
+    )
+
+  if (!candidates.length) {
+    return null
+  }
+
+  candidates.sort((a, b) => {
+    if (b.score !== a.score) {
+      return b.score - a.score
+    }
+    if (!anchor) {
+      return 0
+    }
+    return distanceKm(anchor, a.point) - distanceKm(anchor, b.point)
+  })
+
+  return candidates[0].point
+}
+
 export async function searchPlaceByJs(
   keyword: string,
   city: string,
+  anchor?: GeoPoint | null,
+  clusterAnchors: GeoPoint[] = [],
 ): Promise<GeoPoint | null> {
   const key = cacheKey('poi', city, keyword)
   const cached = readCache(key)
-  if (cached) {
+  if (
+    cached &&
+    isCoordPlausible(cached, anchor ?? null) &&
+    isCoordNearCluster(cached, clusterAnchors) &&
+    !isCoordTooCloseToAny(cached, clusterAnchors)
+  ) {
     return cached
   }
 
@@ -62,26 +110,35 @@ export async function searchPlaceByJs(
     const placeSearch = new AMap.PlaceSearch({
       city,
       citylimit: true,
-      pageSize: 1,
+      pageSize: 10,
     })
 
-    return await new Promise((resolve) => {
-      placeSearch.search(keyword, (status, result) => {
-        const poi = result.poiList?.pois?.[0]
-        if (status === 'complete' && poi?.location) {
-          const point = { lng: poi.location.lng, lat: poi.location.lat }
-          writeCache(key, point)
-          resolve(point)
-          return
-        }
-        resolve(null)
+    for (const query of buildPlaceQueries(keyword, city)) {
+      const point = await new Promise<GeoPoint | null>((resolve) => {
+        placeSearch.search(query, (status, result) => {
+          const pois = result.poiList?.pois ?? []
+          if (status !== 'complete' || !pois.length) {
+            resolve(null)
+            return
+          }
+
+          resolve(pickBestJsPoi(pois, keyword, anchor ?? null, clusterAnchors))
+        })
       })
-    })
+
+      if (point) {
+        writeCache(key, point)
+        return point
+      }
+    }
+
+    return null
   } catch {
     return null
   }
 }
 
+/** @deprecated 仅作兜底，优先使用 fallbackCoordsNear */
 export function fallbackCoords(
   center: GeoPoint,
   dayIndex: number,

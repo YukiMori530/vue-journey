@@ -1,22 +1,35 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { DayPlan, TripStop } from '../trips/trip.types';
-
-interface GeoPoint {
-  lng: number;
-  lat: number;
-}
+import {
+  buildPlaceQueries,
+  distanceKm,
+  fallbackCoordsNear,
+  isCoordNearCluster,
+  isCoordPlausible,
+  isCoordTooCloseToAny,
+  pickClosestPoint,
+  poiNameScore,
+  type GeoPoint,
+} from './geo.utils';
 
 export type { GeoPoint };
 
 interface AmapGeoResponse {
   status: string;
-  geocodes?: Array<{ location: string }>;
+  geocodes?: Array<{ location: string; city?: string }>;
+}
+
+interface AmapPoi {
+  location: string;
+  name: string;
+  cityname?: string;
+  adname?: string;
 }
 
 interface AmapPlaceResponse {
   status: string;
-  pois?: Array<{ location: string; name: string }>;
+  pois?: AmapPoi[];
 }
 
 function placeName(raw: string | TripStop): string {
@@ -25,6 +38,13 @@ function placeName(raw: string | TripStop): string {
 
 function hasCoords(raw: string | TripStop): boolean {
   return typeof raw !== 'string' && raw.lng != null && raw.lat != null;
+}
+
+function toStop(raw: string | TripStop, coords?: GeoPoint): TripStop {
+  if (typeof raw === 'string') {
+    return coords ? { name: raw, ...coords } : { name: raw };
+  }
+  return coords ? { ...raw, ...coords } : raw;
 }
 
 @Injectable()
@@ -40,28 +60,6 @@ export class GeoService {
 
   private get apiKey(): string {
     return this.configService.get<string>('AMAP_WEB_KEY') ?? '';
-  }
-
-  private async mapPool<T, R>(
-    items: T[],
-    concurrency: number,
-    worker: (item: T, index: number) => Promise<R>,
-  ): Promise<R[]> {
-    const results: R[] = new Array(items.length);
-    let cursor = 0;
-
-    async function runWorker() {
-      while (cursor < items.length) {
-        const index = cursor;
-        cursor += 1;
-        results[index] = await worker(items[index], index);
-      }
-    }
-
-    await Promise.all(
-      Array.from({ length: Math.min(concurrency, items.length) }, () => runWorker()),
-    );
-    return results;
   }
 
   private parseLocation(location: string): GeoPoint {
@@ -99,10 +97,102 @@ export class GeoService {
     return null;
   }
 
-  async searchPlace(keyword: string, city: string): Promise<GeoPoint | null> {
-    const cacheKey = `poi:${city}:${keyword}`;
+  private async geocodeAddress(
+    address: string,
+    city?: string,
+  ): Promise<GeoPoint | null> {
+    if (!this.enabled) {
+      return null;
+    }
+
+    const cacheKey = `addr:${city ?? ''}:${address}`;
     const cached = this.cache.get(cacheKey);
     if (cached) {
+      return cached;
+    }
+
+    const url = new URL('https://restapi.amap.com/v3/geocode/geo');
+    url.searchParams.set('address', address);
+    if (city) {
+      url.searchParams.set('city', city);
+    }
+    url.searchParams.set('key', this.apiKey);
+
+    try {
+      const response = await fetch(url);
+      const data = (await response.json()) as AmapGeoResponse;
+      if (data.status === '1' && data.geocodes?.[0]?.location) {
+        const point = this.parseLocation(data.geocodes[0].location);
+        this.cache.set(cacheKey, point);
+        return point;
+      }
+    } catch (error) {
+      this.logger.warn(`地址地理编码失败: ${address}`, error);
+    }
+
+    return null;
+  }
+
+  private pickBestPoi(
+    pois: AmapPoi[],
+    cityName: string,
+    anchor: GeoPoint | null,
+    clusterAnchors: GeoPoint[],
+    keyword: string,
+  ): GeoPoint | null {
+    const points = pois.map((poi) => ({
+      point: this.parseLocation(poi.location),
+      poi,
+    }));
+
+    const inCity = points.filter(({ poi }) => {
+      const region = `${poi.cityname ?? ''}${poi.adname ?? ''}${poi.name}`;
+      return region.includes(cityName);
+    });
+
+    const pool = inCity.length ? inCity : points;
+    const candidates = pool
+      .filter(({ point }) => !isCoordTooCloseToAny(point, clusterAnchors))
+      .filter(({ point }) => (anchor ? isCoordPlausible(point, anchor) : true))
+      .filter(({ point }) =>
+        clusterAnchors.length ? isCoordNearCluster(point, clusterAnchors) : true,
+      )
+      .map(({ point, poi }) => ({
+        point,
+        score: poiNameScore(poi.name, keyword),
+      }));
+
+    if (!candidates.length) {
+      return null;
+    }
+
+    candidates.sort((a, b) => {
+      if (b.score !== a.score) {
+        return b.score - a.score;
+      }
+      if (!anchor) {
+        return 0;
+      }
+      return distanceKm(anchor, a.point) - distanceKm(anchor, b.point);
+    });
+
+    return candidates[0].point;
+  }
+
+  async searchPlace(
+    keyword: string,
+    city: string,
+    anchor?: GeoPoint | null,
+    clusterAnchors: GeoPoint[] = [],
+  ): Promise<GeoPoint | null> {
+    const cacheKey = `poi:${city}:${keyword}`;
+    const cached = this.cache.get(cacheKey);
+    if (
+      cached &&
+      isCoordPlausible(cached, anchor ?? null) &&
+      isCoordNearCluster(cached, clusterAnchors) &&
+      !isCoordTooCloseToAny(cached, clusterAnchors)
+    ) {
       return cached;
     }
 
@@ -110,29 +200,32 @@ export class GeoService {
       return null;
     }
 
-    const url = new URL('https://restapi.amap.com/v3/place/text');
     const cityName = city.replace(/(市|县|区)$/, '') || city;
-    const queries = [
-      keyword.includes(cityName) ? keyword : `${cityName}${keyword}`,
-      `${keyword} ${cityName}`,
-      keyword,
-    ];
 
-    for (const keywords of [...new Set(queries)]) {
+    for (const keywords of buildPlaceQueries(keyword, city)) {
+      const url = new URL('https://restapi.amap.com/v3/place/text');
       url.searchParams.set('keywords', keywords);
       url.searchParams.set('city', cityName);
       url.searchParams.set('citylimit', 'true');
-      url.searchParams.set('offset', '1');
+      url.searchParams.set('offset', '10');
       url.searchParams.set('page', '1');
       url.searchParams.set('key', this.apiKey);
 
       try {
         const response = await fetch(url);
         const data = (await response.json()) as AmapPlaceResponse;
-        if (data.status === '1' && data.pois?.[0]?.location) {
-          const point = this.parseLocation(data.pois[0].location);
-          this.cache.set(cacheKey, point);
-          return point;
+        if (data.status === '1' && data.pois?.length) {
+          const point = this.pickBestPoi(
+            data.pois,
+            cityName,
+            anchor ?? null,
+            clusterAnchors,
+            keyword,
+          );
+          if (point) {
+            this.cache.set(cacheKey, point);
+            return point;
+          }
         }
       } catch (error) {
         this.logger.warn(`地点搜索失败: ${keywords} @ ${cityName}`, error);
@@ -142,46 +235,127 @@ export class GeoService {
     return null;
   }
 
-  private fallbackCoords(
-    center: GeoPoint,
-    dayIndex: number,
-    stopIndex: number,
-  ): GeoPoint {
-    const angle = dayIndex * 1.2 + stopIndex * 0.9;
-    const radius = 0.012 + stopIndex * 0.006;
-    return {
-      lng: center.lng + Math.cos(angle) * radius,
-      lat: center.lat + Math.sin(angle) * radius,
-    };
-  }
-
   async resolveStop(
     name: string,
     destination: string,
-    dayIndex: number,
     stopIndex: number,
-    cityCenter?: GeoPoint | null,
+    cityCenter: GeoPoint | null,
+    clusterAnchors: GeoPoint[],
   ): Promise<GeoPoint | null> {
     const city = destination.replace(/(市|县|区)$/, '') || destination;
-    const searched = await this.searchPlace(name, city);
+    const anchor = clusterAnchors.length
+      ? {
+          lng:
+            clusterAnchors.reduce((sum, item) => sum + item.lng, 0) /
+            clusterAnchors.length,
+          lat:
+            clusterAnchors.reduce((sum, item) => sum + item.lat, 0) /
+            clusterAnchors.length,
+        }
+      : cityCenter;
+
+    const candidates: GeoPoint[] = [];
+
+    const searched = await this.searchPlace(name, city, anchor, clusterAnchors);
     if (searched) {
-      return searched;
+      candidates.push(searched);
     }
 
-    const stripped = name.replace(new RegExp(`^${city}`), '').trim() || name;
-    if (stripped !== name) {
-      const retry = await this.searchPlace(stripped, city);
+    for (const query of buildPlaceQueries(name, city).slice(1)) {
+      const retry = await this.searchPlace(query, city, anchor, clusterAnchors);
       if (retry) {
-        return retry;
+        candidates.push(retry);
       }
     }
 
-    const center = cityCenter ?? (await this.geocodeCity(destination));
-    if (!center) {
+    const geocoded = await this.geocodeAddress(
+      name.includes(city) ? name : `${city}市${name}`,
+      city,
+    );
+    if (geocoded) {
+      candidates.push(geocoded);
+    }
+
+    let valid = anchor
+      ? candidates.filter((point) => isCoordPlausible(point, anchor))
+      : candidates;
+
+    valid = valid.filter((point) => !isCoordTooCloseToAny(point, clusterAnchors));
+
+    if (clusterAnchors.length) {
+      const clustered = valid.filter((point) =>
+        isCoordNearCluster(point, clusterAnchors),
+      );
+      if (clustered.length) {
+        valid = clustered;
+      }
+    }
+
+    if (anchor && valid.length) {
+      return pickClosestPoint(valid, anchor);
+    }
+
+    if (valid.length) {
+      return valid[0];
+    }
+
+    if (!anchor) {
       return null;
     }
 
-    return this.fallbackCoords(center, dayIndex, stopIndex);
+    this.logger.warn(`地点坐标回退: ${name} @ ${destination}`);
+    let fallback = fallbackCoordsNear(anchor, stopIndex);
+    let guard = 0;
+    while (isCoordTooCloseToAny(fallback, clusterAnchors) && guard < 6) {
+      guard += 1;
+      fallback = fallbackCoordsNear(anchor, stopIndex + guard);
+    }
+    return fallback;
+  }
+
+  private async resolveDayPlaces(
+    places: Array<string | TripStop>,
+    destination: string,
+    cityCenter: GeoPoint | null,
+  ): Promise<TripStop[]> {
+    const resolved: TripStop[] = [];
+    const clusterAnchors: GeoPoint[] = [];
+
+    for (let stopIndex = 0; stopIndex < places.length; stopIndex += 1) {
+      const raw = places[stopIndex];
+      const name = placeName(raw);
+
+      if (hasCoords(raw)) {
+        const stop = raw as TripStop;
+        const point = { lng: stop.lng!, lat: stop.lat! };
+        const anchor = cityCenter ?? (clusterAnchors[0] ?? null);
+        if (
+          isCoordPlausible(point, anchor) &&
+          isCoordNearCluster(point, clusterAnchors) &&
+          !isCoordTooCloseToAny(point, clusterAnchors)
+        ) {
+          resolved.push(stop);
+          clusterAnchors.push(point);
+          continue;
+        }
+      }
+
+      const coords = await this.resolveStop(
+        name,
+        destination,
+        stopIndex,
+        cityCenter,
+        clusterAnchors,
+      );
+
+      const stop = toStop(raw, coords ?? undefined);
+      resolved.push(stop);
+      if (coords) {
+        clusterAnchors.push(coords);
+      }
+    }
+
+    return resolved;
   }
 
   async enrichDayPlans(
@@ -193,50 +367,12 @@ export class GeoService {
     }
 
     const cityCenter = await this.geocodeCity(destination);
-    type StopTask = {
-      dayIndex: number;
-      stopIndex: number;
-      raw: string | TripStop;
-      name: string;
-    };
+    const enriched: DayPlan[] = [];
 
-    const tasks: StopTask[] = [];
-    dayPlans.forEach((day, dayIndex) => {
-      day.places.forEach((raw, stopIndex) => {
-        if (hasCoords(raw)) {
-          return;
-        }
-        tasks.push({
-          dayIndex,
-          stopIndex,
-          raw,
-          name: placeName(raw),
-        });
-      });
-    });
-
-    if (!tasks.length) {
-      return dayPlans;
+    for (const day of dayPlans) {
+      const places = await this.resolveDayPlaces(day.places, destination, cityCenter);
+      enriched.push({ ...day, places });
     }
-
-    const coordsList = await this.mapPool(tasks, 4, (task) =>
-      this.resolveStop(task.name, destination, task.dayIndex, task.stopIndex, cityCenter),
-    );
-
-    const enriched = dayPlans.map((day) => ({
-      ...day,
-      places: [...day.places],
-    }));
-
-    tasks.forEach((task, index) => {
-      const coords = coordsList[index];
-      if (!coords) {
-        return;
-      }
-      const raw = task.raw;
-      enriched[task.dayIndex].places[task.stopIndex] =
-        typeof raw === 'string' ? { name: raw, ...coords } : { ...raw, ...coords };
-    });
 
     return enriched;
   }
@@ -250,13 +386,24 @@ export class GeoService {
     }
 
     const cityCenter = await this.geocodeCity(destination);
-    const coordsList = await this.mapPool(names, 4, (name, index) =>
-      this.resolveStop(name, destination, 0, index, cityCenter),
-    );
+    const clusterAnchors: GeoPoint[] = [];
+    const results: Array<{ name: string; lng?: number; lat?: number }> = [];
 
-    return names.map((name, index) => {
-      const coords = coordsList[index];
-      return coords ? { name, ...coords } : { name };
-    });
+    for (let index = 0; index < names.length; index += 1) {
+      const name = names[index];
+      const coords = await this.resolveStop(
+        name,
+        destination,
+        index,
+        cityCenter,
+        clusterAnchors,
+      );
+      if (coords) {
+        clusterAnchors.push(coords);
+      }
+      results.push(coords ? { name, ...coords } : { name });
+    }
+
+    return results;
   }
 }

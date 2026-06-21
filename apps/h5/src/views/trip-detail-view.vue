@@ -1,13 +1,15 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, toRef } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { showToast } from 'vant'
 import ConfirmDialog from '../components/confirm-dialog.vue'
 import TripDetailMap from '../components/trip-detail-map.vue'
 import TripDayItinerary from '../components/trip-day-itinerary.vue'
+import { useResolvedDayStops } from '../composables/use-resolved-day-stops'
 import { useTripStore } from '../stores/trip'
 import { useAuthStore } from '../stores/auth'
 import { useProfileStore } from '../stores/profile'
+import { enrichDayPlan } from '../utils/enrich-trip-stops'
 import { ApiError } from '../api/client'
 
 const route = useRoute()
@@ -26,6 +28,28 @@ const isEmpty = computed(
 )
 const showMap = computed(() => selectedTab.value !== 'overview' && !isEmpty.value)
 const dayNumbers = computed(() => trip.value?.dayPlans.map((day) => day.day) ?? [])
+
+const activeDay = computed(() =>
+  typeof selectedTab.value === 'number' ? selectedTab.value : 1,
+)
+const { stops: resolvedStops, loading: stopsLoading } = useResolvedDayStops(
+  trip,
+  toRef(activeDay),
+)
+
+const activeDayPlan = computed(() => {
+  if (!trip.value || selectedTab.value === 'overview') {
+    return null
+  }
+  return trip.value.dayPlans.find((item) => item.day === selectedTab.value) ?? null
+})
+
+const activeDayTitle = computed(() => {
+  if (!trip.value || !activeDayPlan.value) {
+    return ''
+  }
+  return enrichDayPlan(activeDayPlan.value, trip.value.destination).title
+})
 
 onMounted(async () => {
   const dayQuery = Number(route.query.day)
@@ -101,7 +125,11 @@ async function confirmDelete() {
           </button>
         </div>
       </header>
-      <TripDetailMap :trip="trip" :day="selectedTab as number" />
+      <TripDetailMap
+        :day="activeDay"
+        :stops="resolvedStops"
+        :loading="stopsLoading"
+      />
     </section>
 
     <header v-else class="detail-header">
@@ -182,7 +210,12 @@ async function confirmDelete() {
           <p class="plan-empty__desc">添加地点/住宿/交通完善计划</p>
         </div>
 
-        <TripDayItinerary v-else :trip="trip" :day="selectedTab as number" />
+        <TripDayItinerary
+          v-else
+          :title="activeDayTitle"
+          :destination="trip.destination"
+          :stops="resolvedStops"
+        />
       </div>
     </section>
 
