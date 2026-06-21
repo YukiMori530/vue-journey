@@ -1,19 +1,23 @@
 <script setup lang="ts">
 import { onUnmounted, ref, shallowRef, watch } from 'vue'
 import { loadAMap } from '../utils/amap'
-import { buildDrivingPath } from '../utils/amap-route'
+import { buildRouteSegments } from '../utils/amap-route'
 import { getDayColor } from '../utils/day-route-colors'
 import type { GeneratingMapStop } from '../utils/plan-generation-script'
 
 const props = defineProps<{
   center: [number, number]
   stops: GeneratingMapStop[]
+  destination?: string
 }>()
 
 const mapContainer = ref<HTMLElement | null>(null)
 const mapInstance = shallowRef<AMap.Map | null>(null)
 const mapMarkers = shallowRef<AMap.Marker[]>([])
 const mapPolylines = shallowRef<AMap.Polyline[]>([])
+
+let renderSeq = 0
+let renderTimer: ReturnType<typeof setTimeout> | null = null
 
 function buildMarkerContent(stop: GeneratingMapStop) {
   const color = getDayColor(stop.day)
@@ -34,12 +38,17 @@ function clearMapOverlays() {
 }
 
 async function renderMap() {
+  const seq = ++renderSeq
+
   if (!mapContainer.value) {
     return
   }
 
   try {
-    await loadAMap(['AMap.Polyline', 'AMap.Driving'])
+    await loadAMap(['AMap.Polyline'])
+    if (seq !== renderSeq) {
+      return
+    }
 
     if (!mapInstance.value) {
       mapInstance.value = new AMap.Map(mapContainer.value, {
@@ -82,14 +91,22 @@ async function renderMap() {
       if (sorted.length < 2) {
         continue
       }
-      const path = await buildDrivingPath(sorted)
-      if (path.length > 1) {
+      const segments = await buildRouteSegments(sorted, props.destination)
+      if (seq !== renderSeq) {
+        clearMapOverlays()
+        return
+      }
+      for (const path of segments) {
+        if (path.length <= 1) {
+          continue
+        }
         const polyline = new AMap.Polyline({
           path,
           strokeColor: getDayColor(day),
           strokeWeight: 6,
           strokeOpacity: 0.92,
           lineJoin: 'round',
+          lineCap: 'round',
           showDir: true,
         })
         polyline.setMap(mapInstance.value!)
@@ -104,13 +121,27 @@ async function renderMap() {
   }
 }
 
+function scheduleRender() {
+  if (renderTimer) {
+    clearTimeout(renderTimer)
+  }
+  renderTimer = setTimeout(() => {
+    renderTimer = null
+    renderMap()
+  }, 60)
+}
+
 watch(
-  () => [props.center, props.stops],
-  () => setTimeout(renderMap, 60),
+  () => [props.center, props.stops, props.destination],
+  scheduleRender,
   { deep: true, immediate: true },
 )
 
 onUnmounted(() => {
+  renderSeq += 1
+  if (renderTimer) {
+    clearTimeout(renderTimer)
+  }
   clearMapOverlays()
   mapInstance.value?.destroy()
   mapInstance.value = null

@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, toRef } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { showToast } from 'vant'
 import ConfirmDialog from '../components/confirm-dialog.vue'
-import TripDetailMap from '../components/trip-detail-map.vue'
+import TripOverviewMap from '../components/trip-overview-map.vue'
+import TripOverviewBody from '../components/trip-overview-body.vue'
 import TripDayItinerary from '../components/trip-day-itinerary.vue'
-import { useResolvedDayStops } from '../composables/use-resolved-day-stops'
+import { useResolvedTripStops } from '../composables/use-resolved-trip-stops'
 import { useTripStore } from '../stores/trip'
 import { useAuthStore } from '../stores/auth'
 import { useProfileStore } from '../stores/profile'
@@ -18,7 +19,7 @@ const tripStore = useTripStore()
 const authStore = useAuthStore()
 const profileStore = useProfileStore()
 const detailLoading = ref(false)
-const selectedTab = ref<'overview' | number>('overview')
+const selectedTab = ref<'overview' | 'pending' | number>('overview')
 const showDeleteDialog = ref(false)
 
 const tripId = computed(() => Number(route.params.id))
@@ -26,23 +27,32 @@ const trip = computed(() => tripStore.tripById(tripId.value))
 const isEmpty = computed(
   () => !trip.value?.dayPlans.length || trip.value.placeCount === 0,
 )
-const showMap = computed(() => selectedTab.value !== 'overview' && !isEmpty.value)
+const showMap = computed(() => !isEmpty.value)
 const dayNumbers = computed(() => trip.value?.dayPlans.map((day) => day.day) ?? [])
 
-const activeDay = computed(() =>
-  typeof selectedTab.value === 'number' ? selectedTab.value : 1,
-)
-const { stops: resolvedStops, loading: stopsLoading } = useResolvedDayStops(
-  trip,
-  toRef(activeDay),
+const { days: resolvedDays, loading: stopsLoading } = useResolvedTripStops(trip)
+
+const activeDay = computed(() => {
+  if (typeof selectedTab.value === 'number') {
+    return selectedTab.value
+  }
+  return 1
+})
+
+const mapHighlightDay = computed(() =>
+  selectedTab.value === 'overview' ? null : activeDay.value,
 )
 
 const activeDayPlan = computed(() => {
-  if (!trip.value || selectedTab.value === 'overview') {
+  if (!trip.value || selectedTab.value === 'overview' || selectedTab.value === 'pending') {
     return null
   }
   return trip.value.dayPlans.find((item) => item.day === selectedTab.value) ?? null
 })
+
+const activeDayStops = computed(
+  () => resolvedDays.value.find((day) => day.day === activeDay.value)?.stops ?? [],
+)
 
 const activeDayTitle = computed(() => {
   if (!trip.value || !activeDayPlan.value) {
@@ -81,8 +91,12 @@ function goBack() {
   router.push('/')
 }
 
-function selectTab(tab: 'overview' | number) {
+function selectTab(tab: 'overview' | 'pending' | number) {
   selectedTab.value = tab
+}
+
+function selectDayFromOverview(day: number) {
+  selectedTab.value = day
 }
 
 function openDeleteDialog() {
@@ -125,9 +139,10 @@ async function confirmDelete() {
           </button>
         </div>
       </header>
-      <TripDetailMap
-        :day="activeDay"
-        :stops="resolvedStops"
+      <TripOverviewMap
+        :days="resolvedDays"
+        :destination="trip.destination"
+        :highlight-day="mapHighlightDay"
         :loading="stopsLoading"
       />
     </section>
@@ -179,30 +194,41 @@ async function confirmDelete() {
         >
           DAY {{ day }}
         </button>
+        <button
+          type="button"
+          class="detail-tab"
+          :class="{ active: selectedTab === 'pending' }"
+          @click="selectTab('pending')"
+        >
+          待计划
+        </button>
       </div>
 
       <div class="panel-body">
-        <div v-if="selectedTab === 'overview'" class="overview-body">
-          <div class="overview-card">
-            <div class="overview-row">
-              <span>行程概览</span>
-              <van-icon name="arrow" size="14" color="#c8c9cc" />
-            </div>
-            <div class="overview-row">
-              <span>计划</span>
-              <span class="overview-muted">{{ trip.placeCount }} 个地点</span>
-            </div>
+        <TripOverviewBody
+          v-if="selectedTab === 'overview' && !isEmpty"
+          :trip="trip"
+          :days="resolvedDays"
+          @select-day="selectDayFromOverview"
+        />
+
+        <div v-else-if="selectedTab === 'overview' && isEmpty" class="plan-empty">
+          <p class="plan-empty__title">空空如也</p>
+          <p class="plan-empty__desc">添加地点/住宿/交通完善计划</p>
+        </div>
+
+        <div v-else-if="selectedTab === 'pending'" class="pending-body">
+          <div class="pending-icon" aria-hidden="true">
+            <svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <rect x="8" y="8" width="64" height="64" rx="8" stroke="#c8c9cc" stroke-width="2" stroke-dasharray="4 4" />
+              <path d="M24 52 L40 28 L56 52 Z" stroke="#969799" stroke-width="2" fill="none" />
+              <circle cx="56" cy="24" r="6" stroke="#969799" stroke-width="2" fill="none" />
+            </svg>
           </div>
-          <div class="feature-grid">
-            <div class="feature-card feature-card--note">
-              <h3>便签</h3>
-              <p>记录你的旅行想法</p>
-            </div>
-            <div class="feature-card feature-card--pack">
-              <h3>行李清单</h3>
-              <p>快捷添加出行物品</p>
-            </div>
-          </div>
+          <p class="pending-body__hint">把还没排进日程的地点放在这里</p>
+          <button type="button" class="pending-body__btn" @click="showToast('添加地点开发中')">
+            添加待计划
+          </button>
         </div>
 
         <div v-else-if="isEmpty" class="plan-empty">
@@ -214,7 +240,7 @@ async function confirmDelete() {
           v-else
           :title="activeDayTitle"
           :destination="trip.destination"
-          :stops="resolvedStops"
+          :stops="activeDayStops"
         />
       </div>
     </section>
@@ -405,63 +431,6 @@ async function confirmDelete() {
   padding: 16px 18px;
 }
 
-.overview-card {
-  margin-bottom: 14px;
-  padding: 4px 16px;
-  border-radius: 16px;
-  background: #f7f8fa;
-}
-
-.overview-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 14px 0;
-  border-bottom: 1px solid #eee;
-  font-size: 15px;
-}
-
-.overview-row:last-child {
-  border-bottom: none;
-}
-
-.overview-muted {
-  font-size: 13px;
-  color: #969799;
-}
-
-.feature-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-}
-
-.feature-card {
-  min-height: 100px;
-  padding: 16px;
-  border-radius: 16px;
-}
-
-.feature-card h3 {
-  margin: 0 0 8px;
-  font-size: 16px;
-  font-weight: 700;
-}
-
-.feature-card p {
-  margin: 0;
-  font-size: 12px;
-  color: #646566;
-}
-
-.feature-card--note {
-  background: #fff9e6;
-}
-
-.feature-card--pack {
-  background: #e8f2fc;
-}
-
 .plan-empty {
   padding: 48px 16px;
   text-align: center;
@@ -477,6 +446,42 @@ async function confirmDelete() {
   margin: 0;
   font-size: 13px;
   color: #969799;
+}
+
+.pending-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 48px 16px;
+  text-align: center;
+}
+
+.pending-icon {
+  width: 80px;
+  height: 80px;
+  margin-bottom: 16px;
+}
+
+.pending-icon svg {
+  width: 100%;
+  height: 100%;
+}
+
+.pending-body__hint {
+  margin: 0 0 20px;
+  font-size: 14px;
+  color: #646566;
+}
+
+.pending-body__btn {
+  padding: 12px 24px;
+  border: none;
+  border-radius: 999px;
+  background: #111;
+  font-size: 14px;
+  font-weight: 600;
+  color: #fff;
+  cursor: pointer;
 }
 
 .detail-footer {

@@ -2,13 +2,14 @@
 import { onUnmounted, ref, shallowRef, watch } from 'vue'
 import { showToast } from 'vant'
 import type { TripStop } from '../types/trip'
-import { buildDrivingPath } from '../utils/amap-route'
+import { buildRouteSegments } from '../utils/amap-route'
 import { getDayColor } from '../utils/day-route-colors'
 import { loadAMap } from '../utils/amap'
 
 const props = defineProps<{
   day: number
   stops: TripStop[]
+  destination?: string
   loading?: boolean
 }>()
 
@@ -16,6 +17,9 @@ const mapContainer = ref<HTMLElement | null>(null)
 const mapInstance = shallowRef<AMap.Map | null>(null)
 const mapMarkers = shallowRef<AMap.Marker[]>([])
 const mapPolylines = shallowRef<AMap.Polyline[]>([])
+
+let renderSeq = 0
+let renderTimer: ReturnType<typeof setTimeout> | null = null
 
 function buildMarkerContent(order: number, name: string, day: number) {
   const color = getDayColor(day)
@@ -35,6 +39,8 @@ function clearMapOverlays() {
 }
 
 async function renderMap() {
+  const seq = ++renderSeq
+
   if (!mapContainer.value || !props.stops.length) {
     return
   }
@@ -45,7 +51,10 @@ async function renderMap() {
   }
 
   try {
-    await loadAMap(['AMap.Polyline', 'AMap.Driving'])
+    await loadAMap(['AMap.Polyline'])
+    if (seq !== renderSeq) {
+      return
+    }
 
     if (!mapInstance.value) {
       const first = located[0]
@@ -71,37 +80,59 @@ async function renderMap() {
       return marker
     })
 
-    const routePath = await buildDrivingPath(
+    const segments = await buildRouteSegments(
       located as Array<{ lng: number; lat: number }>,
+      props.destination,
     )
-    if (routePath.length > 1) {
+    if (seq !== renderSeq) {
+      clearMapOverlays()
+      return
+    }
+
+    const color = getDayColor(props.day)
+    mapPolylines.value = segments.map((path) => {
       const polyline = new AMap.Polyline({
-        path: routePath,
-        strokeColor: getDayColor(props.day),
+        path,
+        strokeColor: color,
         strokeWeight: 5,
         strokeOpacity: 0.9,
         lineJoin: 'round',
+        lineCap: 'round',
         showDir: true,
       })
       polyline.setMap(mapInstance.value!)
-      mapPolylines.value = [polyline]
-    }
+      return polyline
+    })
 
     mapInstance.value.setFitView(mapMarkers.value, false, [40, 40, 40, 40])
   } catch {
-    showToast('地图加载失败')
+    if (seq === renderSeq) {
+      showToast('地图加载失败')
+    }
   }
 }
 
+function scheduleRender() {
+  if (renderTimer) {
+    clearTimeout(renderTimer)
+  }
+  renderTimer = setTimeout(() => {
+    renderTimer = null
+    renderMap()
+  }, 80)
+}
+
 watch(
-  () => [props.day, props.stops],
-  () => {
-    setTimeout(renderMap, 80)
-  },
+  () => [props.day, props.stops, props.destination],
+  scheduleRender,
   { immediate: true, deep: true },
 )
 
 onUnmounted(() => {
+  renderSeq += 1
+  if (renderTimer) {
+    clearTimeout(renderTimer)
+  }
   clearMapOverlays()
   mapInstance.value?.destroy()
   mapInstance.value = null

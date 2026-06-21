@@ -13,7 +13,11 @@ import {
   isCoordTooCloseToAny,
 } from './geo-distance'
 import type { TripStop } from '../types/trip'
-import { attachDriveSegments } from './route-order'
+import {
+  attachDriveSegments,
+  dedupeNearbyStops,
+  optimizeStopOrder,
+} from './route-order'
 
 let backendGeoEnabled: boolean | null = null
 
@@ -170,7 +174,9 @@ export async function resolveDayStops(
     }
   }
 
-  return attachDriveSegments(resolved)
+  const cleaned = dedupeNearbyStops(resolved)
+  const ordered = optimizeStopOrder(cleaned)
+  return attachDriveSegments(ordered)
 }
 
 export async function resolveTripStops(

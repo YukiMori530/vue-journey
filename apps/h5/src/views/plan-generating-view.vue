@@ -230,7 +230,11 @@ onUnmounted(() => {
     </header>
 
     <div class="gen-map-wrap">
-      <PlanGeneratingMap :center="mapCenter" :stops="mapStops" />
+      <PlanGeneratingMap
+        :center="mapCenter"
+        :stops="mapStops"
+        :destination="parsed.destination"
+      />
     </div>
 
     <section class="gen-sheet">
