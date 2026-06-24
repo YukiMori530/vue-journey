@@ -204,8 +204,14 @@ const CITY_LANDMARKS: Record<string, Record<string, GeoPoint>> = {
     鸽子窝: { lng: 119.46, lat: 39.842 },
     老虎石: { lng: 119.455, lat: 39.825 },
     北戴河: { lng: 119.484, lat: 39.834 },
+    秦皇岛站: { lng: 119.601, lat: 39.965 },
+    北戴河站: { lng: 119.424, lat: 39.866 },
     刘庄: { lng: 119.476, lat: 39.828 },
     阿那亚: { lng: 119.316, lat: 39.667 },
+    秦皇求仙入海处: { lng: 119.524, lat: 39.924 },
+    求仙入海: { lng: 119.524, lat: 39.924 },
+    石塘路市场: { lng: 119.598, lat: 39.928 },
+    石塘路海鲜市场: { lng: 119.598, lat: 39.928 },
   },
   石家庄: {
     赵州桥: { lng: 114.776, lat: 37.718 },
@@ -281,6 +287,38 @@ export function lookupKnownLandmark(name: string, city?: string): GeoPoint | nul
   return null;
 }
 
+/** 某城市已知地标列表，用于无法定位时的兜底 */
+export function knownLandmarkStops(
+  city: string,
+): Array<{ name: string; lng: number; lat: number }> {
+  const region = extractDestinationRegion(city);
+  const normalized = normalizeCityName(city);
+  const table =
+    CITY_LANDMARKS[normalized] ?? CITY_LANDMARKS[region] ?? null;
+  if (!table) {
+    return [];
+  }
+  return Object.entries(table).map(([name, point]) => ({ name, ...point }));
+}
+
+/** AI 易生成的泛称，高德难以稳定检索 */
+export function isVaguePlaceName(name: string): boolean {
+  const primary = primaryPlaceName(name).replace(/\s/g, '');
+  if (/(?:当地|本地|特色|知名|网红|必吃|人气)(?:美食|小吃|餐厅|海鲜|大排档|打卡)/.test(primary)) {
+    return true;
+  }
+  if (/^[\u4e00-\u9fa5]{2,10}(?:市|区|县)[\u4e00-\u9fa5]{0,6}(?:海鲜市场|农贸市场|菜市场|美食城)$/.test(primary)) {
+    return true;
+  }
+  if (/^[\u4e00-\u9fa5]{2,8}区海鲜市场$/.test(primary)) {
+    return true;
+  }
+  if (/附近(?:美食|餐厅|小吃|海鲜)/.test(primary)) {
+    return true;
+  }
+  return false;
+}
+
 export function landmarkSearchAliases(name: string, city?: string): string[] {
   const cityName = city ? normalizeCityName(city) : '';
   const primary = primaryPlaceName(name);
@@ -353,14 +391,18 @@ export function isRemoteStopPoint(
   stopName: string,
   point: GeoPoint,
   cityCenter: GeoPoint | null,
+  destination?: string,
 ): boolean {
   if (isRemoteExcursion(stopName)) {
     return true;
   }
-  if (!cityCenter) {
+  const center = destination
+    ? resolveStopGeoContext(stopName, destination, cityCenter).center
+    : cityCenter;
+  if (!center) {
     return false;
   }
-  return distanceKm(cityCenter, point) > 35;
+  return distanceKm(center, point) > 35;
 }
 
 export function isCoordPlausibleForStop(
@@ -406,20 +448,48 @@ function scoreRailwayStationMatch(poiName: string, keyword: string): number {
   return 0;
 }
 
+function poiKeywordTokens(keyword: string): string[] {
+  const primary = primaryPlaceName(keyword).replace(/[（(].*?[）)]/g, '').trim();
+  const tokens = new Set<string>([
+    keyword.replace(/\s/g, ''),
+    primary,
+    ...keyword.split(/[/|、·]/).map((part) => part.trim()),
+  ]);
+
+  for (const base of [primary, keyword.replace(/\s/g, '')]) {
+    tokens.add(base.replace(/^[\u4e00-\u9fa5]{2,8}市?/, '').trim());
+    tokens.add(
+      base.replace(/^[\u4e00-\u9fa5]{2,8}市?[\u4e00-\u9fa5]{0,6}区/, '').trim(),
+    );
+  }
+
+  if (/海鲜市场/.test(primary)) {
+    tokens.add('海鲜市场');
+  }
+  if (/求仙|入海/.test(primary)) {
+    tokens.add('秦皇求仙入海处');
+    tokens.add('求仙入海');
+  }
+  if (/小吃/.test(primary)) {
+    const base = primary.replace(/小吃.*$/, '').replace(/街$/, '').trim();
+    if (base) {
+      tokens.add(base);
+    }
+  }
+
+  return [...tokens].filter((token) => token.length >= 2);
+}
+
 export function poiNameScore(poiName: string, keyword: string): number {
   const normalizedPoi = poiName.replace(/\s/g, '');
-  const tokens = [
-    keyword,
-    primaryPlaceName(keyword),
-    ...keyword.split(/[/|、·]/),
-  ]
-    .map((token) => token.replace(/[（(].*?[）)]/g, '').trim())
-    .filter((token) => token.length >= 2);
+  const tokens = poiKeywordTokens(keyword);
 
   let score = scoreRailwayStationMatch(poiName, keyword);
   for (const token of tokens) {
     if (normalizedPoi.includes(token)) {
       score += token.length;
+    } else if (token.length >= 4 && token.includes(normalizedPoi)) {
+      score += normalizedPoi.length;
     }
   }
 
@@ -544,6 +614,12 @@ export function buildPlaceQueries(name: string, city: string): string[] {
   }
   if (/摩天轮|珠宝街|万寿宫|大士院/.test(stripped)) {
     queries.push(`${cityName}${stripped}`, stripped);
+  }
+  if (/求仙|入海/.test(stripped)) {
+    queries.push('秦皇求仙入海处', `${cityName}秦皇求仙入海处`, `${cityName}求仙入海`);
+  }
+  if (/海鲜市场/.test(stripped)) {
+    queries.push(`${cityName}海鲜市场`, '海鲜市场', stripped);
   }
 
   if (/长城|八达岭|慕田峪|居庸关|兵马俑|雅丹|玉龙雪山|阳朔/.test(stripped)) {

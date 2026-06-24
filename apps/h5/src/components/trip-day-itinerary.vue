@@ -41,6 +41,9 @@ const enrichedStops = computed(() =>
           <p v-if="stop.startTime && stop.endTime" class="stop-time">
             {{ stop.startTime }} - {{ stop.endTime }}
           </p>
+          <p v-if="stop.lng == null || stop.lat == null" class="stop-unlocated">
+            暂未在地图上定位
+          </p>
           <p class="stop-desc">{{ stop.description }}</p>
         </div>
         <button type="button" class="stop-edit" aria-label="编辑">
@@ -120,6 +123,12 @@ const enrichedStops = computed(() =>
   margin: 0 0 6px;
   font-size: 12px;
   color: #969799;
+}
+
+.stop-unlocated {
+  margin: 0 0 6px;
+  font-size: 12px;
+  color: #ed6a0c;
 }
 
 .stop-desc {

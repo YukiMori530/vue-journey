@@ -1,8 +1,8 @@
 import { ref, watch, type Ref } from 'vue'
 import type { Trip, TripStop } from '../types/trip'
 import { enrichDayPlan } from '../utils/enrich-trip-stops'
+import { enrichStopsDriveMetrics, sumStopRouteKm } from '../utils/amap-route'
 import { resolveDayStops } from '../utils/trip-geocode'
-import { distanceKm } from '../utils/geo-distance'
 
 export interface ResolvedDayStops {
   day: number
@@ -12,18 +12,7 @@ export interface ResolvedDayStops {
 }
 
 function dayRouteKm(stops: TripStop[]): number {
-  let total = 0
-  for (let index = 1; index < stops.length; index += 1) {
-    const prev = stops[index - 1]
-    const curr = stops[index]
-    if (prev.lng != null && prev.lat != null && curr.lng != null && curr.lat != null) {
-      total += distanceKm(
-        { lng: prev.lng, lat: prev.lat },
-        { lng: curr.lng, lat: curr.lat },
-      )
-    }
-  }
-  return Number(total.toFixed(1))
+  return sumStopRouteKm(stops)
 }
 
 export function useResolvedTripStops(trip: Ref<Trip | undefined>) {
@@ -57,11 +46,17 @@ export function useResolvedTripStops(trip: Ref<Trip | undefined>) {
             current.destination,
             dayIndex,
           )
+          let withDrive = stops
+          try {
+            withDrive = await enrichStopsDriveMetrics(stops)
+          } catch {
+            // 高德不可用时保留直线估算
+          }
           resolved.push({
             day: dayPlan.day,
             title: enriched.title,
-            stops,
-            totalKm: dayRouteKm(stops),
+            stops: withDrive,
+            totalKm: dayRouteKm(withDrive),
           })
         }
         days.value = resolved

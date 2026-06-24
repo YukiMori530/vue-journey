@@ -6,6 +6,7 @@ import {
   lookupLocalPoiPhoto,
   primaryPlaceName,
 } from './poi-photo-registry'
+export { primaryPlaceName } from './poi-photo-registry'
 import type { DayPlan, Trip } from '../types/trip'
 
 const photoCache = new Map<string, string | null>()
@@ -103,12 +104,27 @@ export function extractTripStopNames(trip: Trip, limit = 6): string[] {
   return names
 }
 
-export function getTripHeroStop(trip: Trip): { name: string; destination: string } {
-  const first = extractTripStopNames(trip, 1)[0]
+export function resolveTripCoverStop(
+  trip: Trip,
+  preferredName?: string | null,
+): { name: string; destination: string } {
+  const gallery = extractTripStopNames(trip, 6)
+  if (preferredName) {
+    const preferredPrimary = primaryPlaceName(preferredName)
+    const match = gallery.find((name) => primaryPlaceName(name) === preferredPrimary)
+    if (match) {
+      return { name: match, destination: trip.destination }
+    }
+  }
+  const first = gallery[0]
   return {
     name: first ?? trip.destination,
     destination: trip.destination,
   }
+}
+
+export function getTripHeroStop(trip: Trip): { name: string; destination: string } {
+  return resolveTripCoverStop(trip)
 }
 
 export function extractDayStopNames(day: DayPlan): string[] {

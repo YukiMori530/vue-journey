@@ -1,7 +1,5 @@
 import {
-  distanceKm,
   isRemoteExcursion,
-  isRemoteStopPoint,
   primaryPlaceName,
   type GeoPoint,
 } from './geo.utils';
@@ -42,17 +40,10 @@ function dedupeStopsByName(stops: TripStop[]): TripStop[] {
   return result;
 }
 
-/** 城区点若形成两个相距过远的簇，仍保留全部（地图需展示所有站点） */
-function keepUrbanCluster(
-  stops: Array<TripStop & { lng: number; lat: number }>,
-): Array<TripStop & { lng: number; lat: number }> {
-  return stops;
-}
-
-/** geocode 后按坐标裁剪不合理同天站点 */
+/** geocode 后裁剪同天站点：仅去同名、区分长城一日游，不按省中心距离删点 */
 export function trimDayPlanStops(
   stops: TripStop[],
-  cityCenter: GeoPoint | null,
+  _cityCenter: GeoPoint | null,
 ): TripStop[] {
   let result = dedupeStopsByName(stops);
 
@@ -66,21 +57,5 @@ export function trimDayPlanStops(
   const located = result.filter(hasCoords);
   const missing = result.filter((stop) => !hasCoords(stop));
 
-  const remoteLocated = located.filter((stop) =>
-    isRemoteStopPoint(stop.name, stop, cityCenter),
-  );
-  const urbanLocated = located.filter((stop) => !remoteLocated.includes(stop));
-
-  let keptLocated: Array<TripStop & { lng: number; lat: number }> = [];
-
-  if (remoteLocated.length && urbanLocated.length) {
-    keptLocated = remoteLocated;
-  } else if (urbanLocated.length) {
-    keptLocated = keepUrbanCluster(urbanLocated);
-  } else {
-    keptLocated = remoteLocated;
-  }
-
-  const merged = [...keptLocated, ...missing].slice(0, MAX_STOPS_PER_DAY);
-  return dedupeStopsByName(merged);
+  return dedupeStopsByName([...located, ...missing].slice(0, MAX_STOPS_PER_DAY));
 }

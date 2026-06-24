@@ -8,7 +8,7 @@ import { useTripMetaStore } from '../stores/trip-meta'
 import TripNoteSheet from './trip-note-sheet.vue'
 import TripPackSheet from './trip-pack-sheet.vue'
 import PlaceCoverImage from './place-cover-image.vue'
-import { extractTripStopNames } from '../utils/place-photo'
+import { extractTripStopNames, primaryPlaceName, resolveTripCoverStop } from '../utils/place-photo'
 
 const props = defineProps<{
   trip: Trip
@@ -31,6 +31,18 @@ const packCount = computed(() => metaStore.getMeta(props.trip.id).packItems.leng
 const packDone = computed(() => metaStore.packDoneCount(props.trip.id))
 const notePreview = computed(() => metaStore.getMeta(props.trip.id).note.trim())
 const galleryStops = computed(() => extractTripStopNames(props.trip, 4))
+const coverStop = computed(() => {
+  const meta = metaStore.getMeta(props.trip.id)
+  return resolveTripCoverStop(props.trip, meta.coverStopName)
+})
+
+function isCoverStop(stopName: string) {
+  return primaryPlaceName(stopName) === primaryPlaceName(coverStop.value.name)
+}
+
+function selectCover(stopName: string) {
+  metaStore.setCoverStop(props.trip.id, stopName)
+}
 
 const visibleDays = computed(() =>
   expanded.value ? props.days : props.days.slice(0, 1),
@@ -81,18 +93,21 @@ function openCollect() {
         <button type="button" class="photo-add" aria-label="添加图片">
           <van-icon name="plus" size="22" color="#969799" />
         </button>
-        <div
+        <button
           v-for="(stopName, index) in galleryStops"
           :key="`${stopName}-${index}`"
+          type="button"
           class="photo-item"
+          :class="{ 'photo-item--cover': isCoverStop(stopName) }"
+          @click="selectCover(stopName)"
         >
           <PlaceCoverImage
             class="photo-item__img"
             :name="stopName"
             :destination="trip.destination"
           />
-          <span v-if="index === 0" class="photo-item__tag">封面</span>
-        </div>
+          <span v-if="isCoverStop(stopName)" class="photo-item__tag">封面</span>
+        </button>
       </div>
     </section>
 
@@ -253,6 +268,14 @@ function openCollect() {
 
 .photo-item {
   position: relative;
+  padding: 0;
+  border: 2px solid transparent;
+  background: transparent;
+  cursor: pointer;
+}
+
+.photo-item--cover {
+  border-color: #7c5cbf;
 }
 
 .photo-item__img {

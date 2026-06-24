@@ -102,38 +102,16 @@ function twoOptImprove(
   return path
 }
 
-/** 去重过近/同名站点，避免路线打结 */
+/** 仅去重同名站点；过近坐标由 uniqueRouteWaypoints 在画线时处理，不删列表项 */
 export function dedupeNearbyStops(stops: TripStop[]): TripStop[] {
-  const result: TripStop[] = []
-
-  for (const stop of dedupeStopsByName(stops)) {
-    if (!hasCoords(stop)) {
-      result.push(stop)
-      continue
-    }
-
-    const prev = [...result].reverse().find((item) => hasCoords(item)) as
-      | (TripStop & { lng: number; lat: number })
-      | undefined
-
-    if (prev && distanceKm(prev, stop) < MIN_WAYPOINT_KM) {
-      const samePlace = stopNameKey(prev.name) === stopNameKey(stop.name)
-      const duplicatePoint = distanceKm(prev, stop) < 0.05
-      if (samePlace || duplicatePoint) {
-        continue
-      }
-    }
-
-    result.push(stop)
-  }
-
-  return result.slice(0, MAX_STOPS_PER_DAY)
+  return dedupeStopsByName(stops).slice(0, MAX_STOPS_PER_DAY)
 }
 
 /** 优化同天访问顺序：城区一组、远郊（长城等）放最后 */
 export function optimizeStopOrder(
   stops: TripStop[],
   cityCenter?: GeoPoint | null,
+  destination?: string,
 ): TripStop[] {
   const located = stops.filter(hasCoords)
   const missing = stops.filter((stop) => !hasCoords(stop))
@@ -143,7 +121,7 @@ export function optimizeStopOrder(
   }
 
   const remote = located.filter((stop) =>
-    isRemoteStopPoint(stop.name, stop, cityCenter ?? null),
+    isRemoteStopPoint(stop.name, stop, cityCenter ?? null, destination),
   )
   const urban = located.filter((stop) => !remote.includes(stop))
 
@@ -239,8 +217,11 @@ export function attachDriveSegments(stops: TripStop[]): TripStop[] {
 export function prepareStopsForRoute(
   stops: TripStop[],
   cityCenter?: GeoPoint | null,
+  destination?: string,
 ): TripStop[] {
-  return attachDriveSegments(optimizeStopOrder(dedupeNearbyStops(stops), cityCenter))
+  return attachDriveSegments(
+    optimizeStopOrder(dedupeNearbyStops(stops), cityCenter, destination),
+  )
 }
 
 export function dayAnchor(stops: TripStop[], cityCenter: GeoPoint | null): GeoPoint | null {

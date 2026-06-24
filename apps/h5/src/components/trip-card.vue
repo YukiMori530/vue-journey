@@ -1,10 +1,9 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { Trip } from '../types/trip'
-import { useAuthStore } from '../stores/auth'
-import { useProfileStore } from '../stores/profile'
+import { useTripMetaStore } from '../stores/trip-meta'
 import PlaceCoverImage from './place-cover-image.vue'
-import { getTripHeroStop } from '../utils/place-photo'
+import { resolveTripCoverStop } from '../utils/place-photo'
 import { resolveTripCardBg } from '../utils/trip-themes'
 
 const props = defineProps<{
@@ -15,11 +14,13 @@ const emit = defineEmits<{
   click: []
 }>()
 
-const authStore = useAuthStore()
-const profileStore = useProfileStore()
+const metaStore = useTripMetaStore()
 
 const cardBg = computed(() => resolveTripCardBg(props.trip.theme, props.trip.id))
-const heroStop = computed(() => getTripHeroStop(props.trip))
+const coverStop = computed(() => {
+  const meta = metaStore.getMeta(props.trip.id)
+  return resolveTripCoverStop(props.trip, meta.coverStopName)
+})
 const showCover = computed(() => props.trip.placeCount > 0)
 const dateLabel = computed(() => props.trip.nights || '未设置日期')
 </script>
@@ -32,17 +33,11 @@ const dateLabel = computed(() => props.trip.nights || '未设置日期')
       <p class="trip-card__meta">{{ trip.placeCount }} 个地点</p>
     </div>
 
-    <img
-      class="trip-card__avatar"
-      :src="profileStore.avatarUrl"
-      :alt="authStore.displayName"
-    />
-
     <div v-if="showCover" class="trip-card__cover-wrap">
       <PlaceCoverImage
         class="trip-card__cover"
-        :name="heroStop.name"
-        :destination="heroStop.destination"
+        :name="coverStop.name"
+        :destination="coverStop.destination"
       />
     </div>
     <div v-else class="trip-card__cover-placeholder" aria-hidden="true">
@@ -86,18 +81,6 @@ const dateLabel = computed(() => props.trip.nights || '未设置日期')
   color: rgb(0 0 0 / 55%);
 }
 
-.trip-card__avatar {
-  position: absolute;
-  bottom: 18px;
-  left: 18px;
-  z-index: 2;
-  width: 32px;
-  height: 32px;
-  border: 2px solid rgb(255 255 255 / 80%);
-  border-radius: 50%;
-  object-fit: cover;
-}
-
 .trip-card__cover-wrap {
   position: absolute;
   right: 12px;
@@ -109,6 +92,8 @@ const dateLabel = computed(() => props.trip.nights || '未设置日期')
 }
 
 .trip-card__cover {
+  width: 100%;
+  height: 100%;
   border: 3px solid #fff;
   border-radius: 12px;
   overflow: hidden;

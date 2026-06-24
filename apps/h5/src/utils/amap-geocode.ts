@@ -62,22 +62,29 @@ function pickBestJsPoi(
   clusterAnchors: GeoPoint[],
 ): GeoPoint | null {
   const bindCluster = shouldBindToCluster(keyword)
-  const candidates = pois
-    .filter((poi) => poi.location)
-    .filter((poi) => !isNonAttractionPoi(poi.name))
-    .map((poi) => ({
-      point: { lng: poi.location.lng, lat: poi.location.lat },
-      score: poiNameScore(poi.name, keyword),
-    }))
-    .filter(({ score }) => score >= MIN_POI_NAME_SCORE)
-    .filter(({ point }) =>
-      anchor ? isCoordPlausibleForStop(point, anchor, keyword) : true,
-    )
-    .filter(({ point }) =>
-      bindCluster && clusterAnchors.length
-        ? isCoordNearCluster(point, clusterAnchors)
-        : true,
-    )
+
+  const rank = (useCluster: boolean) =>
+    pois
+      .filter((poi) => poi.location)
+      .filter((poi) => !isNonAttractionPoi(poi.name))
+      .map((poi) => ({
+        point: { lng: poi.location.lng, lat: poi.location.lat },
+        score: poiNameScore(poi.name, keyword),
+      }))
+      .filter(({ score }) => score >= MIN_POI_NAME_SCORE)
+      .filter(({ point }) =>
+        anchor ? isCoordPlausibleForStop(point, anchor, keyword) : true,
+      )
+      .filter(({ point }) =>
+        bindCluster && useCluster && clusterAnchors.length
+          ? isCoordNearCluster(point, clusterAnchors)
+          : true,
+      )
+
+  let candidates = rank(true)
+  if (!candidates.length && bindCluster && clusterAnchors.length) {
+    candidates = rank(false)
+  }
 
   if (!candidates.length) {
     return null

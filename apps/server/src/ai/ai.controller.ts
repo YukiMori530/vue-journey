@@ -13,6 +13,7 @@ import { PlanItineraryDto } from './dto/plan-itinerary.dto';
 import { ReviseTripDto } from './dto/revise-trip.dto';
 import { itineraryToCreateTripDto, itineraryToUpdateFields } from './itinerary.mapper';
 import { sanitizeItinerary } from './itinerary-sanitize';
+import { countPlaces } from '../trips/trip-builder';
 import {
   applyDeterministicRevision,
   hasItineraryChanges,
@@ -49,6 +50,7 @@ export class AiController {
       createDto.dayPlans ?? [],
       dto.destination,
     );
+    createDto.placeCount = countPlaces(createDto.dayPlans ?? []);
     const data = await this.tripsService.create(createDto, userId);
     return { data, logs };
   }
@@ -88,6 +90,7 @@ export class AiController {
         createDto.dayPlans ?? [],
         dto.destination,
       );
+      createDto.placeCount = countPlaces(createDto.dayPlans ?? []);
       const data = await this.tripsService.create(createDto, user.id);
 
       write({ type: 'done', data });
@@ -121,6 +124,7 @@ export class AiController {
       createDto.dayPlans ?? [],
       parsed.destination,
     );
+    createDto.placeCount = countPlaces(createDto.dayPlans ?? []);
     const data = await this.tripsService.create(createDto, user.id);
     return { data, message: 'imported' };
   }
@@ -172,6 +176,7 @@ export class AiController {
     return this.tripsService.update(tripId, userId, {
       ...updateFields,
       dayPlans,
+      placeCount: countPlaces(dayPlans),
     });
   }
 

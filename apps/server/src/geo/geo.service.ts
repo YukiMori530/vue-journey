@@ -11,7 +11,6 @@ import {
   isCoordPlausibleForStop,
   isRemoteExcursion,
   isNonAttractionPoi,
-  isNonAttractionStop,
   isWideAreaDestination,
   isWithinDestination,
   lookupKnownLandmark,
@@ -25,6 +24,7 @@ import {
 } from './geo.utils';
 import { orderStopsByZones } from './route-order';
 import { trimDayPlanStops } from './day-plan-trim';
+import { filterLocatableDayPlans } from './locatable-day-plans';
 
 export type { GeoPoint };
 
@@ -178,21 +178,28 @@ export class GeoService {
     });
 
     const pool = inCity.length ? inCity : points;
-    const candidates = pool
-      .filter(({ poi }) => !isNonAttractionPoi(poi.name))
-      .filter(({ point }) =>
-        anchor ? isCoordPlausibleForStop(point, anchor, keyword) : true,
-      )
-      .filter(({ point }) =>
-        bindCluster && clusterAnchors.length
-          ? isCoordNearCluster(point, clusterAnchors)
-          : true,
-      )
-      .map(({ point, poi }) => ({
-        point,
-        score: poiNameScore(poi.name, keyword),
-      }))
-      .filter(({ score }) => score >= MIN_POI_NAME_SCORE);
+
+    const rank = (useCluster: boolean) =>
+      pool
+        .filter(({ poi }) => !isNonAttractionPoi(poi.name))
+        .filter(({ point }) =>
+          anchor ? isCoordPlausibleForStop(point, anchor, keyword) : true,
+        )
+        .filter(({ point }) =>
+          bindCluster && useCluster && clusterAnchors.length
+            ? isCoordNearCluster(point, clusterAnchors)
+            : true,
+        )
+        .map(({ point, poi }) => ({
+          point,
+          score: poiNameScore(poi.name, keyword),
+        }))
+        .filter(({ score }) => score >= MIN_POI_NAME_SCORE);
+
+    let candidates = rank(true);
+    if (!candidates.length && bindCluster && clusterAnchors.length) {
+      candidates = rank(false);
+    }
 
     if (!candidates.length) {
       return null;
@@ -359,10 +366,6 @@ export class GeoService {
         ? urbanClusterAnchors
         : [];
 
-    if (isNonAttractionStop(name)) {
-      return null;
-    }
-
     const known = lookupKnownLandmark(name, destination);
     if (known && isWithinDestination(known, cityCenter, name, destination)) {
       return known;
@@ -420,7 +423,12 @@ export class GeoService {
       if (hasCoords(raw)) {
         const stop = raw as TripStop;
         const point = { lng: stop.lng!, lat: stop.lat! };
-        const anchor = cityCenter ?? (urbanClusterAnchors[0] ?? null);
+        const { center: stopCenter } = resolveStopGeoContext(
+          name,
+          destination,
+          cityCenter,
+        );
+        const anchor = stopCenter ?? cityCenter ?? urbanClusterAnchors[0] ?? null;
         if (
           isCoordPlausibleForStop(point, anchor, name) &&
           (shouldBindToCluster(name)
@@ -453,7 +461,7 @@ export class GeoService {
     }
 
     return trimDayPlanStops(
-      orderStopsByZones(resolved, cityCenter),
+      orderStopsByZones(resolved, cityCenter, destination),
       cityCenter,
     );
   }
@@ -474,7 +482,17 @@ export class GeoService {
       enriched.push({ ...day, places });
     }
 
-    return enriched;
+    const { dayPlans: located, dropped } = filterLocatableDayPlans(
+      enriched,
+      destination,
+    );
+    if (dropped.length) {
+      this.logger.debug(
+        `已移除无法定位的地点: ${dropped.join('、')}`,
+      );
+    }
+
+    return located;
   }
 
   async batchGeocode(

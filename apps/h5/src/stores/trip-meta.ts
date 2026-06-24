@@ -9,6 +9,8 @@ interface PackItem {
 interface TripMetaRecord {
   note: string
   packItems: PackItem[]
+  /** 用户选中的封面景点名（对应图片空间里某张图） */
+  coverStopName?: string
 }
 
 const STORAGE_KEY = 'tuhui-trip-meta'
@@ -78,6 +80,12 @@ export const useTripMetaStore = defineStore('tripMeta', {
     packDoneCount(tripId: number) {
       const items = this.getMeta(tripId).packItems
       return items.filter((item) => item.done).length
+    },
+
+    setCoverStop(tripId: number, stopName: string) {
+      const meta = this.getMeta(tripId)
+      meta.coverStopName = stopName.trim()
+      writeAll(this.cache)
     },
   },
 })

@@ -1,5 +1,6 @@
 import {
   isRemoteExcursion,
+  isVaguePlaceName,
   primaryPlaceName,
 } from '../geo/geo.utils';
 import type { ItineraryOutput } from './schemas/itinerary.schema';
@@ -90,7 +91,7 @@ export function sanitizeItinerary(itinerary: ItineraryOutput): ItineraryOutput {
   let overflow: Poi[] = [];
 
   const days = itinerary.days.map((day) => {
-    let pois = dedupePois(day.pois);
+    let pois = dedupePois(day.pois).filter((poi) => !isVaguePlaceName(poi.name));
     const split = splitRemoteUrban(pois);
     pois = split.kept;
     overflow = overflow.concat(split.overflow);

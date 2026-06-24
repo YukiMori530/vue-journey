@@ -81,6 +81,7 @@ function optimizeGroup(
 export function orderStopsByZones(
   stops: TripStop[],
   cityCenter: GeoPoint | null,
+  destination?: string,
 ): TripStop[] {
   const located = stops.filter(hasCoords);
   const missing = stops.filter((stop) => !hasCoords(stop));
@@ -90,7 +91,7 @@ export function orderStopsByZones(
   }
 
   const remote = located.filter((stop) =>
-    isRemoteStopPoint(stop.name, stop, cityCenter),
+    isRemoteStopPoint(stop.name, stop, cityCenter, destination),
   );
   const urban = located.filter((stop) => !remote.includes(stop));
 

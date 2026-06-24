@@ -11,7 +11,6 @@ import {
   inferStopCity,
   isCoordNearCluster,
   isCoordPlausibleForStop,
-  isNonAttractionStop,
   isRemoteExcursion,
   isWithinDestination,
   isWideAreaDestination,
@@ -101,10 +100,6 @@ async function resolveSingleStop(
       ? urbanClusterAnchors
       : []
 
-  if (isNonAttractionStop(stop.name)) {
-    return stop
-  }
-
   const known = lookupKnownLandmark(stop.name, destination)
   if (known && isWithinDestination(known, cityCenter, stop.name, destination)) {
     return { ...stop, ...known }
@@ -154,6 +149,14 @@ async function resolveSingleStop(
   return point ? { ...stop, ...point } : stop
 }
 
+function stopGeoAnchor(
+  stopName: string,
+  destination: string,
+  cityCenter: GeoPoint | null,
+): GeoPoint | null {
+  return resolveStopGeoContext(stopName, destination, cityCenter).center ?? cityCenter
+}
+
 const batchCoordCache = new Map<string, GeoPoint>()
 
 function batchCacheKey(destination: string, name: string): string {
@@ -195,16 +198,17 @@ export async function resolveDayStops(
   const urbanClusterAnchors: GeoPoint[] = []
   let clusterCity: string | null = null
 
-  const needsLookup = stops.some(
-    (stop) =>
-      stop.lng == null ||
-      stop.lat == null ||
-      !isCoordPlausibleForStop(
-        { lng: stop.lng!, lat: stop.lat! },
-        cityCenter,
-        stop.name,
-      ),
-  )
+  const needsLookup = stops.some((stop) => {
+    if (stop.lng == null || stop.lat == null) {
+      return true
+    }
+    const anchor = stopGeoAnchor(stop.name, destination, cityCenter)
+    return !isCoordPlausibleForStop(
+      { lng: stop.lng, lat: stop.lat },
+      anchor,
+      stop.name,
+    )
+  })
 
   if (needsLookup && (await isBackendGeoEnabled())) {
     try {
@@ -215,9 +219,10 @@ export async function resolveDayStops(
       batch.forEach((item) => {
         if (item.lng != null && item.lat != null) {
           const point = { lng: item.lng, lat: item.lat }
+          const anchor = stopGeoAnchor(item.name, destination, cityCenter)
           if (
             isWithinDestination(point, cityCenter, item.name, destination) &&
-            isCoordPlausibleForStop(point, cityCenter, item.name)
+            isCoordPlausibleForStop(point, anchor, item.name)
           ) {
             batchCoordCache.set(batchCacheKey(destination, item.name), point)
           }
@@ -256,7 +261,7 @@ export async function resolveDayStops(
   }
 
   const cleaned = dedupeNearbyStops(resolved)
-  const ordered = optimizeStopOrder(cleaned, cityCenter)
+  const ordered = optimizeStopOrder(cleaned, cityCenter, destination)
   return attachDriveSegments(ordered)
 }
 
