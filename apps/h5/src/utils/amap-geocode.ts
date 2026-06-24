@@ -3,9 +3,10 @@ import {
   buildPlaceQueries,
   distanceKm,
   isCoordNearCluster,
-  isCoordPlausible,
+  isCoordPlausibleForStop,
   isCoordTooCloseToAny,
   poiNameScore,
+  shouldBindToCluster,
   type GeoPoint,
 } from './geo-distance'
 
@@ -59,6 +60,7 @@ function pickBestJsPoi(
   anchor: GeoPoint | null,
   clusterAnchors: GeoPoint[],
 ): GeoPoint | null {
+  const bindCluster = shouldBindToCluster(keyword)
   const candidates = pois
     .filter((poi) => poi.location)
     .map((poi) => ({
@@ -66,9 +68,13 @@ function pickBestJsPoi(
       score: poiNameScore(poi.name, keyword),
     }))
     .filter(({ point }) => !isCoordTooCloseToAny(point, clusterAnchors))
-    .filter(({ point }) => (anchor ? isCoordPlausible(point, anchor) : true))
     .filter(({ point }) =>
-      clusterAnchors.length ? isCoordNearCluster(point, clusterAnchors) : true,
+      anchor ? isCoordPlausibleForStop(point, anchor, keyword) : true,
+    )
+    .filter(({ point }) =>
+      bindCluster && clusterAnchors.length
+        ? isCoordNearCluster(point, clusterAnchors)
+        : true,
     )
 
   if (!candidates.length) {
@@ -98,8 +104,10 @@ export async function searchPlaceByJs(
   const cached = readCache(key)
   if (
     cached &&
-    isCoordPlausible(cached, anchor ?? null) &&
-    isCoordNearCluster(cached, clusterAnchors) &&
+    isCoordPlausibleForStop(cached, anchor ?? null, keyword) &&
+    (shouldBindToCluster(keyword)
+      ? isCoordNearCluster(cached, clusterAnchors)
+      : true) &&
     !isCoordTooCloseToAny(cached, clusterAnchors)
   ) {
     return cached

@@ -6,10 +6,13 @@ import {
   distanceKm,
   fallbackCoordsNear,
   isCoordNearCluster,
-  isCoordPlausible,
+  isCoordPlausibleForStop,
+  isRemoteExcursion,
   isCoordTooCloseToAny,
+  lookupKnownLandmark,
   pickClosestPoint,
   poiNameScore,
+  shouldBindToCluster,
   type GeoPoint,
 } from './geo.utils';
 
@@ -140,6 +143,7 @@ export class GeoService {
     clusterAnchors: GeoPoint[],
     keyword: string,
   ): GeoPoint | null {
+    const bindCluster = shouldBindToCluster(keyword);
     const points = pois.map((poi) => ({
       point: this.parseLocation(poi.location),
       poi,
@@ -147,15 +151,19 @@ export class GeoService {
 
     const inCity = points.filter(({ poi }) => {
       const region = `${poi.cityname ?? ''}${poi.adname ?? ''}${poi.name}`;
-      return region.includes(cityName);
+      return region.includes(cityName) || isRemoteExcursion(keyword);
     });
 
     const pool = inCity.length ? inCity : points;
     const candidates = pool
       .filter(({ point }) => !isCoordTooCloseToAny(point, clusterAnchors))
-      .filter(({ point }) => (anchor ? isCoordPlausible(point, anchor) : true))
       .filter(({ point }) =>
-        clusterAnchors.length ? isCoordNearCluster(point, clusterAnchors) : true,
+        anchor ? isCoordPlausibleForStop(point, anchor, keyword) : true,
+      )
+      .filter(({ point }) =>
+        bindCluster && clusterAnchors.length
+          ? isCoordNearCluster(point, clusterAnchors)
+          : true,
       )
       .map(({ point, poi }) => ({
         point,
@@ -189,8 +197,10 @@ export class GeoService {
     const cached = this.cache.get(cacheKey);
     if (
       cached &&
-      isCoordPlausible(cached, anchor ?? null) &&
-      isCoordNearCluster(cached, clusterAnchors) &&
+      isCoordPlausibleForStop(cached, anchor ?? null, keyword) &&
+      (shouldBindToCluster(keyword)
+        ? isCoordNearCluster(cached, clusterAnchors)
+        : true) &&
       !isCoordTooCloseToAny(cached, clusterAnchors)
     ) {
       return cached;
@@ -243,16 +253,24 @@ export class GeoService {
     clusterAnchors: GeoPoint[],
   ): Promise<GeoPoint | null> {
     const city = destination.replace(/(市|县|区)$/, '') || destination;
-    const anchor = clusterAnchors.length
-      ? {
-          lng:
-            clusterAnchors.reduce((sum, item) => sum + item.lng, 0) /
-            clusterAnchors.length,
-          lat:
-            clusterAnchors.reduce((sum, item) => sum + item.lat, 0) /
-            clusterAnchors.length,
-        }
-      : cityCenter;
+    const remote = isRemoteExcursion(name);
+    const anchor = remote
+      ? cityCenter
+      : clusterAnchors.length
+        ? {
+            lng:
+              clusterAnchors.reduce((sum, item) => sum + item.lng, 0) /
+              clusterAnchors.length,
+            lat:
+              clusterAnchors.reduce((sum, item) => sum + item.lat, 0) /
+              clusterAnchors.length,
+          }
+        : cityCenter;
+
+    const known = lookupKnownLandmark(name);
+    if (known && isCoordPlausibleForStop(known, cityCenter, name)) {
+      return known;
+    }
 
     const candidates: GeoPoint[] = [];
 
@@ -277,12 +295,12 @@ export class GeoService {
     }
 
     let valid = anchor
-      ? candidates.filter((point) => isCoordPlausible(point, anchor))
+      ? candidates.filter((point) => isCoordPlausibleForStop(point, anchor, name))
       : candidates;
 
     valid = valid.filter((point) => !isCoordTooCloseToAny(point, clusterAnchors));
 
-    if (clusterAnchors.length) {
+    if (shouldBindToCluster(name) && clusterAnchors.length) {
       const clustered = valid.filter((point) =>
         isCoordNearCluster(point, clusterAnchors),
       );
@@ -292,6 +310,11 @@ export class GeoService {
     }
 
     if (anchor && valid.length) {
+      if (remote && cityCenter) {
+        return valid.sort(
+          (a, b) => distanceKm(cityCenter, b) - distanceKm(cityCenter, a),
+        )[0];
+      }
       return pickClosestPoint(valid, anchor);
     }
 
@@ -299,7 +322,11 @@ export class GeoService {
       return valid[0];
     }
 
-    if (!anchor) {
+    if (known) {
+      return known;
+    }
+
+    if (!anchor || remote) {
       return null;
     }
 
@@ -330,8 +357,10 @@ export class GeoService {
         const point = { lng: stop.lng!, lat: stop.lat! };
         const anchor = cityCenter ?? (clusterAnchors[0] ?? null);
         if (
-          isCoordPlausible(point, anchor) &&
-          isCoordNearCluster(point, clusterAnchors) &&
+          isCoordPlausibleForStop(point, anchor, name) &&
+          (shouldBindToCluster(name)
+            ? isCoordNearCluster(point, clusterAnchors)
+            : true) &&
           !isCoordTooCloseToAny(point, clusterAnchors)
         ) {
           resolved.push(stop);

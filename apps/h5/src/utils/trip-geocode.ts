@@ -9,8 +9,11 @@ import {
   buildPlaceQueries,
   fallbackCoordsNear,
   isCoordNearCluster,
-  isCoordPlausible,
+  isCoordPlausibleForStop,
+  isRemoteExcursion,
   isCoordTooCloseToAny,
+  lookupKnownLandmark,
+  shouldBindToCluster,
 } from './geo-distance'
 import type { TripStop } from '../types/trip'
 import {
@@ -57,18 +60,28 @@ async function resolveSingleStop(
   clusterAnchors: GeoPoint[],
   coordMap: Map<string, GeoPoint>,
 ): Promise<TripStop> {
-  const anchor = clusterAnchors.length
-    ? {
-        lng: clusterAnchors.reduce((sum, item) => sum + item.lng, 0) / clusterAnchors.length,
-        lat: clusterAnchors.reduce((sum, item) => sum + item.lat, 0) / clusterAnchors.length,
-      }
-    : cityCenter
+  const remote = isRemoteExcursion(stop.name)
+  const anchor = remote
+    ? cityCenter
+    : clusterAnchors.length
+      ? {
+          lng: clusterAnchors.reduce((sum, item) => sum + item.lng, 0) / clusterAnchors.length,
+          lat: clusterAnchors.reduce((sum, item) => sum + item.lat, 0) / clusterAnchors.length,
+        }
+      : cityCenter
+
+  const known = lookupKnownLandmark(stop.name)
+  if (known && isCoordPlausibleForStop(known, cityCenter, stop.name)) {
+    return { ...stop, ...known }
+  }
 
   if (
     stop.lng != null &&
     stop.lat != null &&
-    isCoordPlausible({ lng: stop.lng, lat: stop.lat }, anchor) &&
-    isCoordNearCluster({ lng: stop.lng, lat: stop.lat }, clusterAnchors) &&
+    isCoordPlausibleForStop({ lng: stop.lng, lat: stop.lat }, anchor, stop.name) &&
+    (shouldBindToCluster(stop.name)
+      ? isCoordNearCluster({ lng: stop.lng, lat: stop.lat }, clusterAnchors)
+      : true) &&
     !isCoordTooCloseToAny({ lng: stop.lng, lat: stop.lat }, clusterAnchors)
   ) {
     return stop
@@ -77,8 +90,10 @@ async function resolveSingleStop(
   const mapped = coordMap.get(stop.name)
   if (
     mapped &&
-    isCoordPlausible(mapped, anchor) &&
-    isCoordNearCluster(mapped, clusterAnchors) &&
+    isCoordPlausibleForStop(mapped, anchor, stop.name) &&
+    (shouldBindToCluster(stop.name)
+      ? isCoordNearCluster(mapped, clusterAnchors)
+      : true) &&
     !isCoordTooCloseToAny(mapped, clusterAnchors)
   ) {
     return { ...stop, ...mapped }
@@ -100,14 +115,19 @@ async function resolveSingleStop(
     )
     if (
       point &&
-      (!isCoordPlausible(point, anchor) ||
-        !isCoordNearCluster(point, clusterAnchors))
+      (!isCoordPlausibleForStop(point, anchor, stop.name) ||
+        (shouldBindToCluster(stop.name) &&
+          !isCoordNearCluster(point, clusterAnchors)))
     ) {
       point = null
     }
   }
 
-  if (!point && anchor) {
+  if (!point && known) {
+    point = known
+  }
+
+  if (!point && anchor && !remote) {
     let fallback = fallbackCoordsNear(anchor, stopIndex)
     let guard = 0
     while (isCoordTooCloseToAny(fallback, clusterAnchors) && guard < 6) {
@@ -135,8 +155,9 @@ export async function resolveDayStops(
     (stop) =>
       stop.lng == null ||
       stop.lat == null ||
-      !isCoordPlausible({ lng: stop.lng!, lat: stop.lat! }, cityCenter) ||
-      !isCoordNearCluster({ lng: stop.lng!, lat: stop.lat! }, clusterAnchors),
+      !isCoordPlausibleForStop({ lng: stop.lng!, lat: stop.lat! }, cityCenter, stop.name) ||
+      (shouldBindToCluster(stop.name) &&
+        !isCoordNearCluster({ lng: stop.lng!, lat: stop.lat! }, clusterAnchors)),
   )
 
   if (needsLookup && (await isBackendGeoEnabled())) {
@@ -148,7 +169,7 @@ export async function resolveDayStops(
       batch.forEach((item) => {
         if (item.lng != null && item.lat != null) {
           const point = { lng: item.lng, lat: item.lat }
-          if (isCoordPlausible(point, cityCenter)) {
+          if (isCoordPlausibleForStop(point, cityCenter, item.name)) {
             coordMap.set(item.name, point)
           }
         }
