@@ -5,6 +5,13 @@ import type { Trip, TripStop } from '../types/trip'
 import { normalizeDayPlan } from '../types/trip'
 import { resolveDayStops } from '../utils/trip-geocode'
 import { loadAMap } from '../utils/amap'
+import {
+  buildRoutePolylineOptions,
+  buildTripMapMarkerHtml,
+  TRIP_MAP_MARKER_OFFSET,
+  TRIP_MAP_STYLE,
+} from '../utils/map-marker'
+import { getDayColor } from '../utils/day-route-colors'
 
 const props = defineProps<{
   trip: Trip
@@ -61,16 +68,6 @@ const visibleStops = computed(() => {
   )
 })
 
-function buildMarkerContent(stop: { name: string; order: number; day: number }, index: number) {
-  const label = selectedDay.value === 'all' ? `${stop.day}-${stop.order}` : String(stop.order)
-  return `
-    <div class="trip-map-marker">
-      <span class="trip-map-marker__num">${label}</span>
-      <span class="trip-map-marker__name">${stop.name}</span>
-    </div>
-  `
-}
-
 function clearMapOverlays() {
   mapMarkers.value.forEach((marker) => marker.setMap(null))
   mapMarkers.value = []
@@ -93,7 +90,7 @@ async function renderMap() {
         zoom: 12,
         center: [first.lng!, first.lat!],
         viewMode: '2D',
-        mapStyle: 'amap://styles/normal',
+        mapStyle: TRIP_MAP_STYLE,
       })
       mapInstance.value.add(new AMap.Scale({ position: 'LB' }))
     }
@@ -108,8 +105,8 @@ async function renderMap() {
 
       const marker = new AMap.Marker({
         position,
-        content: buildMarkerContent(stop, index),
-        offset: new AMap.Pixel(-20, -36),
+        content: buildTripMapMarkerHtml(stop.order, stop.name, getDayColor(stop.day)),
+        offset: new AMap.Pixel(TRIP_MAP_MARKER_OFFSET.x, TRIP_MAP_MARKER_OFFSET.y),
         zIndex: 100 + index,
       })
       marker.setMap(mapInstance.value!)
@@ -117,14 +114,13 @@ async function renderMap() {
     })
 
     if (path.length > 1) {
+      const dayColor =
+        selectedDay.value === 'all'
+          ? getDayColor(visibleStops.value[0]?.day ?? 1)
+          : getDayColor(selectedDay.value as number)
       mapPolyline.value = new AMap.Polyline({
         path,
-        strokeColor: '#111',
-        strokeWeight: 4,
-        strokeOpacity: 0.85,
-        lineJoin: 'round',
-        lineCap: 'round',
-        showDir: true,
+        ...buildRoutePolylineOptions(dayColor, true),
       })
       mapPolyline.value.setMap(mapInstance.value!)
     }
@@ -311,41 +307,5 @@ onUnmounted(() => {
   margin: 0;
   font-size: 12px;
   color: #969799;
-}
-</style>
-
-<style>
-.trip-map-marker {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  width: 72px;
-  text-align: center;
-}
-
-.trip-map-marker__num {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border: 2px solid #fff;
-  border-radius: 50%;
-  background: #111;
-  font-size: 11px;
-  font-weight: 700;
-  color: #fff;
-  box-shadow: 0 2px 8px rgb(0 0 0 / 20%);
-}
-
-.trip-map-marker__name {
-  margin-top: 4px;
-  padding: 2px 6px;
-  border-radius: 8px;
-  background: rgb(255 255 255 / 95%);
-  font-size: 10px;
-  line-height: 1.3;
-  color: #323233;
-  box-shadow: 0 2px 8px rgb(0 0 0 / 10%);
 }
 </style>

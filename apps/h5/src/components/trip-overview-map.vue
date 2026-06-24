@@ -4,6 +4,14 @@ import type { ResolvedDayStops } from '../composables/use-resolved-trip-stops'
 import { buildRouteSegments } from '../utils/amap-route'
 import { getDayColor } from '../utils/day-route-colors'
 import { loadAMap } from '../utils/amap'
+import {
+  buildOverviewDayBadgeHtml,
+  buildRoutePolylineOptions,
+  buildTripMapMarkerHtml,
+  TRIP_MAP_DAY_BADGE_OFFSET,
+  TRIP_MAP_MARKER_OFFSET,
+  TRIP_MAP_STYLE,
+} from '../utils/map-marker'
 
 const props = defineProps<{
   days: ResolvedDayStops[]
@@ -26,26 +34,6 @@ const visibleDays = computed(() => {
   }
   return props.days
 })
-
-function buildMarkerContent(order: number, name: string, day: number) {
-  const color = getDayColor(day)
-  return `
-    <div class="trip-detail-map-marker">
-      <span class="trip-detail-map-marker__num" style="background:${color}">${order}</span>
-      <span class="trip-detail-map-marker__name">${name}</span>
-    </div>
-  `
-}
-
-function buildDayBadge(day: number, totalKm: number) {
-  const color = getDayColor(day)
-  return `
-    <div class="trip-overview-day-badge" style="background:${color}">
-      <span>DAY ${day}</span>
-      <strong>${totalKm} km</strong>
-    </div>
-  `
-}
 
 function clearMapOverlays() {
   mapMarkers.value.forEach((marker) => marker.setMap(null))
@@ -74,7 +62,7 @@ async function renderMap() {
         zoom: 12,
         center: firstStop ? [firstStop.lng!, firstStop.lat!] : [120.38, 36.07],
         viewMode: '2D',
-        mapStyle: 'amap://styles/normal',
+        mapStyle: TRIP_MAP_STYLE,
       })
     }
 
@@ -91,8 +79,8 @@ async function renderMap() {
       located.forEach((stop, index) => {
         const marker = new AMap.Marker({
           position: [stop.lng!, stop.lat!],
-          content: buildMarkerContent(index + 1, stop.name, dayPlan.day),
-          offset: new AMap.Pixel(-18, -34),
+          content: buildTripMapMarkerHtml(index + 1, stop.name, getDayColor(dayPlan.day)),
+          offset: new AMap.Pixel(TRIP_MAP_MARKER_OFFSET.x, TRIP_MAP_MARKER_OFFSET.y),
           zIndex: 100 + dayPlan.day * 10 + index,
         })
         marker.setMap(mapInstance.value!)
@@ -102,8 +90,8 @@ async function renderMap() {
       if (props.highlightDay == null && located[0]) {
         const badge = new AMap.Marker({
           position: [located[0].lng!, located[0].lat!],
-          content: buildDayBadge(dayPlan.day, dayPlan.totalKm),
-          offset: new AMap.Pixel(-36, -72),
+          content: buildOverviewDayBadgeHtml(dayPlan.day, dayPlan.totalKm, getDayColor(dayPlan.day)),
+          offset: new AMap.Pixel(TRIP_MAP_DAY_BADGE_OFFSET.x, TRIP_MAP_DAY_BADGE_OFFSET.y),
           zIndex: 200 + dayPlan.day,
         })
         badge.setMap(mapInstance.value!)
@@ -126,12 +114,7 @@ async function renderMap() {
         }
         const polyline = new AMap.Polyline({
           path,
-          strokeColor: color,
-          strokeWeight: props.highlightDay != null ? 5 : 4,
-          strokeOpacity: 0.92,
-          lineJoin: 'round',
-          lineCap: 'round',
-          showDir: true,
+          ...buildRoutePolylineOptions(color, props.highlightDay != null),
         })
         polyline.setMap(mapInstance.value!)
         polylines.push(polyline)
@@ -142,7 +125,7 @@ async function renderMap() {
     mapPolylines.value = polylines
 
     if (markers.length) {
-      mapInstance.value.setFitView(markers, false, [48, 48, 48, 48])
+      mapInstance.value.setFitView(markers, false, [56, 56, 56, 56])
     }
   } catch {
     // ignore map errors
@@ -195,7 +178,7 @@ onUnmounted(() => {
 .trip-overview-map {
   width: 100%;
   height: 100%;
-  background: #e8edf2;
+  background: #eef1f5;
 }
 
 .trip-overview-map__loading {
@@ -205,26 +188,5 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   background: rgb(255 255 255 / 55%);
-}
-</style>
-
-<style>
-.trip-overview-day-badge {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  min-width: 72px;
-  padding: 6px 10px;
-  border: 2px solid #fff;
-  border-radius: 12px;
-  font-size: 10px;
-  font-weight: 700;
-  color: #fff;
-  box-shadow: 0 2px 10px rgb(0 0 0 / 18%);
-}
-
-.trip-overview-day-badge strong {
-  margin-top: 2px;
-  font-size: 11px;
 }
 </style>

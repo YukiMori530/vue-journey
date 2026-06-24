@@ -5,6 +5,7 @@ import piniaPluginPersistedstate from 'pinia-plugin-persistedstate'
 import App from './App.vue'
 import router from './router'
 import './style.css'
+import './styles/map-markers.css'
 
 const app = createApp(App)
 const pinia = createPinia()

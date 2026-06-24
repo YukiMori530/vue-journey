@@ -1,0 +1,120 @@
+/* 高德自定义 Marker HTML 样式（非 scoped，供地图 overlay 使用） */
+
+.trip-map-pin {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 5px;
+  pointer-events: none;
+  user-select: none;
+}
+
+.trip-map-pin__icon {
+  position: relative;
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: 2.5px solid #fff;
+  border-radius: 50%;
+  background: var(--pin-color, #1989fa);
+  box-shadow:
+    0 2px 4px rgb(0 0 0 / 12%),
+    0 6px 16px rgb(0 0 0 / 18%);
+}
+
+.trip-map-pin__icon::after {
+  content: '';
+  position: absolute;
+  bottom: -7px;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-top: 8px solid var(--pin-color, #1989fa);
+  border-right: 5px solid transparent;
+  border-left: 5px solid transparent;
+  transform: translateX(-50%);
+  filter: drop-shadow(0 2px 2px rgb(0 0 0 / 15%));
+}
+
+.trip-map-pin__icon span {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1;
+  color: #fff;
+  text-shadow: 0 1px 2px rgb(0 0 0 / 20%);
+}
+
+.trip-map-pin__tag {
+  max-width: 76px;
+  padding: 4px 9px;
+  overflow: hidden;
+  border: 1px solid rgb(0 0 0 / 6%);
+  border-radius: 999px;
+  background: rgb(255 255 255 / 97%);
+  box-shadow: 0 2px 10px rgb(0 0 0 / 10%);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.2;
+  color: #1f2937;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.trip-map-pin--generating {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+.trip-map-pin--generating .trip-map-pin__meta {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  margin-left: 2px;
+}
+
+.trip-map-pin__day {
+  flex-shrink: 0;
+  padding: 2px 6px;
+  border-radius: 6px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 9px;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: 0.02em;
+}
+
+.trip-map-day-badge {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 68px;
+  padding: 7px 12px;
+  border: 2px solid rgb(255 255 255 / 95%);
+  border-radius: 14px;
+  background: linear-gradient(145deg, var(--badge-color, #1989fa), color-mix(in srgb, var(--badge-color, #1989fa) 78%, #000));
+  box-shadow:
+    0 2px 4px rgb(0 0 0 / 10%),
+    0 8px 20px rgb(0 0 0 / 16%);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  color: #fff;
+}
+
+.trip-map-day-badge__day {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  opacity: 0.92;
+}
+
+.trip-map-day-badge__km {
+  margin-top: 2px;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
