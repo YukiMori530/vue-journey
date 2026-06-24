@@ -157,5 +157,16 @@ export const useTripStore = defineStore('trip', {
       await tripsApi.deleteTrip(id)
       this.trips = this.trips.filter((trip) => trip.id !== id)
     },
+
+    async reviseTrip(
+      tripId: number,
+      message: string,
+      onLog?: (log: aiApi.PlanStreamLog) => void,
+    ) {
+      await aiApi.reviseTripStream(tripId, message, onLog)
+      const fresh = await tripsApi.fetchTrip(tripId)
+      upsertTrip(this.trips, fresh)
+      return fresh
+    },
   },
 })

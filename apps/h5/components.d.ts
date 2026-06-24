@@ -24,6 +24,7 @@ declare module 'vue' {
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
     TripCard: typeof import('./src/components/trip-card.vue')['default']
+    TripChatSheet: typeof import('./src/components/trip-chat-sheet.vue')['default']
     TripDayItinerary: typeof import('./src/components/trip-day-itinerary.vue')['default']
     TripDetailMap: typeof import('./src/components/trip-detail-map.vue')['default']
     TripMapPanel: typeof import('./src/components/trip-map-panel.vue')['default']

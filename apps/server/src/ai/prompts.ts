@@ -101,3 +101,48 @@ export function buildRetryPrompt(errors: string) {
   return `上次输出 JSON 不符合 schema，错误：${errors}
 请修正后重新输出完整 JSON，不要解释。`;
 }
+
+export const REVISE_SYSTEM_PROMPT = `${SYSTEM_PROMPT}
+
+你是途绘助手，用户已有一份行程，请根据修改意见输出完整 JSON 行程（结构同上）。
+额外规则：
+- 必须落实用户修改意见，改动应体现在 pois 列表（增删地点），不要只改 title
+- 只改与用户意见相关的部分，未提及的天尽量保持原地点
+- 总天数必须与当前行程一致，不得增减 days 数组长度
+- 用户说「少一点」「太多」时，每天减至 2～3 个 POI
+- 用户要把某类体验加入某天时，优先改对应 day，不要打乱远郊单独成天的规则`;
+
+export function buildReviseUserPrompt(input: {
+  destination: string;
+  days: number;
+  preferences: string[];
+  title: string;
+  dayPlans: Array<{
+    day: number;
+    title?: string;
+    places: Array<{ name: string; category?: string }>;
+  }>;
+  message: string;
+}) {
+  const summary = input.dayPlans.map((day) => ({
+    day: day.day,
+    title: day.title,
+    pois: day.places.map((place) => ({
+      name: place.name,
+      category: place.category,
+    })),
+  }));
+
+  return `当前行程标题：${input.title}
+目的地：${input.destination}
+天数：${input.days}
+偏好：${input.preferences.join('、') || '无'}
+
+当前每日安排：
+${JSON.stringify(summary, null, 2)}
+
+用户修改意见：
+${input.message}
+
+请输出修改后的完整行程 JSON。days 数组长度必须等于 ${input.days}，day 从 1 递增。`;
+}

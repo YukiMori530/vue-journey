@@ -1,16 +1,18 @@
 <script setup lang="ts">
-withDefaults(
+const props = withDefaults(
   defineProps<{
     title: string
     message: string
     confirmText?: string
     cancelText?: string
     variant?: 'default' | 'danger'
+    loading?: boolean
   }>(),
   {
     confirmText: '确认',
     cancelText: '取消',
     variant: 'default',
+    loading: false,
   },
 )
 
@@ -21,31 +23,38 @@ const emit = defineEmits<{
 }>()
 
 function cancel() {
+  if (props.loading) {
+    return
+  }
   show.value = false
 }
 
 function confirm() {
+  if (props.loading) {
+    return
+  }
   emit('confirm')
-  show.value = false
 }
 </script>
 
 <template>
   <van-overlay :show="show" z-index="2000" class="confirm-overlay" @click="cancel">
     <div class="confirm-dialog" @click.stop>
-      <h2 class="confirm-dialog__title">{{ title }}</h2>
-      <p class="confirm-dialog__msg">{{ message }}</p>
+      <h2 class="confirm-dialog__title">{{ props.title }}</h2>
+      <p class="confirm-dialog__msg">{{ props.message }}</p>
       <div class="confirm-dialog__actions">
-        <button type="button" class="confirm-dialog__btn confirm-dialog__btn--ghost" @click="cancel">
-          {{ cancelText }}
+        <button type="button" class="confirm-dialog__btn confirm-dialog__btn--ghost" :disabled="props.loading" @click="cancel">
+          {{ props.cancelText }}
         </button>
         <button
           type="button"
           class="confirm-dialog__btn"
-          :class="variant === 'danger' ? 'confirm-dialog__btn--danger' : 'confirm-dialog__btn--primary'"
+          :class="props.variant === 'danger' ? 'confirm-dialog__btn--danger' : 'confirm-dialog__btn--primary'"
+          :disabled="props.loading"
           @click="confirm"
         >
-          {{ confirmText }}
+          <van-loading v-if="props.loading" size="18" color="#fff" />
+          <span v-else>{{ props.confirmText }}</span>
         </button>
       </div>
     </div>
@@ -113,5 +122,10 @@ function confirm() {
 .confirm-dialog__btn--danger {
   background: #ee0a24;
   color: #fff;
+}
+
+.confirm-dialog__btn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
 }
 </style>

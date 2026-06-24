@@ -5,6 +5,7 @@ import {
   Get,
   Param,
   ParseIntPipe,
+  Patch,
   Post,
   UseGuards,
 } from '@nestjs/common';
@@ -13,6 +14,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import type { AuthUser } from '../auth/auth.types';
 import { CreateTripDto } from './dto/create-trip.dto';
 import { ImportTripDto } from './dto/import-trip.dto';
+import { UpdateTripDto } from './dto/update-trip.dto';
 import { TripsService } from './trips.service';
 
 @Controller('trips')
@@ -57,5 +59,15 @@ export class TripsController {
   ) {
     const data = await this.tripsService.remove(id, user.id);
     return { data, message: 'deleted' };
+  }
+
+  @Patch(':id')
+  async update(
+    @CurrentUser() user: AuthUser,
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateTripDto,
+  ) {
+    const data = await this.tripsService.update(id, user.id, dto);
+    return { data, message: 'updated' };
   }
 }

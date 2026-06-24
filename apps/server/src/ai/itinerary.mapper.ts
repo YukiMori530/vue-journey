@@ -16,7 +16,23 @@ export function itineraryToCreateTripDto(
   },
   seed: number,
 ): CreateTripDto {
-  const dayPlans = output.days.map((day) => ({
+  const dayPlans = itineraryToDayPlans(output);
+
+  return {
+    destination: input.destination,
+    days: input.days,
+    preferences: input.preferences,
+    title: output.title,
+    nights: formatNights(input.days),
+    placeCount: countPlaces(dayPlans),
+    cover: pickCover(seed),
+    theme: pickTheme(seed),
+    dayPlans,
+  };
+}
+
+export function itineraryToDayPlans(output: ItineraryOutput) {
+  return output.days.map((day) => ({
     day: day.day,
     title: day.title,
     places: day.pois.map((poi) => ({
@@ -29,16 +45,13 @@ export function itineraryToCreateTripDto(
       endTime: poi.endTime,
     })),
   }));
+}
 
+export function itineraryToUpdateFields(output: ItineraryOutput) {
+  const dayPlans = itineraryToDayPlans(output);
   return {
-    destination: input.destination,
-    days: input.days,
-    preferences: input.preferences,
     title: output.title,
-    nights: formatNights(input.days),
-    placeCount: countPlaces(dayPlans),
-    cover: pickCover(seed),
-    theme: pickTheme(seed),
     dayPlans,
+    placeCount: countPlaces(dayPlans),
   };
 }

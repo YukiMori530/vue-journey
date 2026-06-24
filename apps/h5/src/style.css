@@ -13,3 +13,55 @@ body {
   max-width: 480px;
   margin: 0 auto;
 }
+
+.app-toast.van-toast {
+  top: calc(52px + env(safe-area-inset-top, 0px)) !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px;
+  width: auto !important;
+  max-width: calc(100% - 40px);
+  min-width: 0 !important;
+  min-height: auto !important;
+  padding: 9px 16px 9px 10px !important;
+  border-radius: 999px !important;
+  background: rgb(255 255 255 / 94%) !important;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow:
+    0 6px 24px rgb(124 92 191 / 14%),
+    0 2px 8px rgb(0 0 0 / 6%);
+  color: #323233 !important;
+  font-size: 13px !important;
+  font-weight: 600;
+  line-height: 1.4;
+  pointer-events: none;
+}
+
+.app-toast .van-toast__icon {
+  flex-shrink: 0;
+  width: 22px !important;
+  height: 22px !important;
+  margin: 0 !important;
+  font-size: 12px !important;
+  line-height: 22px !important;
+  border-radius: 50%;
+  color: #fff !important;
+}
+
+.app-toast .van-toast__text {
+  margin-top: 0 !important;
+  padding: 0 !important;
+  max-width: 240px;
+  text-align: left;
+  line-height: 1.35;
+}
+
+.app-toast--success .van-toast__icon {
+  background: linear-gradient(135deg, #9b7fd4, #7c5cbf);
+}
+
+.app-toast--fail .van-toast__icon {
+  background: linear-gradient(135deg, #ff7875, #ee0a24);
+}

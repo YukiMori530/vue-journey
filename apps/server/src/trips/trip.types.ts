@@ -9,6 +9,7 @@ export interface TripStop {
 
 export interface DayPlan {
   day: number;
+  title?: string;
   places: Array<string | TripStop>;
 }
 
@@ -23,4 +24,5 @@ export interface TripResponse {
   cover: string;
   theme: string;
   dayPlans: DayPlan[];
+  updatedAt?: string;
 }

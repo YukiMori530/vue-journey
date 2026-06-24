@@ -31,6 +31,7 @@ export interface Trip {
   cover: string
   theme: string
   dayPlans: DayPlan[]
+  updatedAt?: string
 }
 
 export type CreateTripInput = {

@@ -7,6 +7,7 @@ import { Prisma, type Trip } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateTripDto } from './dto/create-trip.dto';
 import { ImportTripDto } from './dto/import-trip.dto';
+import { UpdateTripDto } from './dto/update-trip.dto';
 import { parseGuideText } from './parse-guide';
 import {
   buildTitle,
@@ -90,6 +91,32 @@ export class TripsService {
     return this.toResponse(trip);
   }
 
+  async update(
+    id: number,
+    userId: number,
+    dto: UpdateTripDto,
+  ): Promise<TripResponse> {
+    await this.getOwnedTrip(id, userId);
+
+    const trip = await this.prisma.trip.update({
+      where: { id },
+      data: {
+        ...(dto.title != null ? { title: dto.title } : {}),
+        ...(dto.dayPlans != null
+          ? {
+              dayPlans: dto.dayPlans as unknown as Prisma.InputJsonValue,
+              placeCount: dto.placeCount ?? countPlaces(dto.dayPlans),
+            }
+          : {}),
+        ...(dto.placeCount != null && dto.dayPlans == null
+          ? { placeCount: dto.placeCount }
+          : {}),
+      },
+    });
+
+    return this.toResponse(trip);
+  }
+
   private async getOwnedTrip(id: number, userId: number): Promise<Trip> {
     const trip = await this.prisma.trip.findUnique({ where: { id } });
     if (!trip) {
@@ -113,6 +140,7 @@ export class TripsService {
       cover: trip.cover,
       theme: trip.theme,
       dayPlans: trip.dayPlans as unknown as DayPlan[],
+      updatedAt: trip.updatedAt.toISOString(),
     };
   }
 }

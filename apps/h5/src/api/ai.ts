@@ -98,3 +98,77 @@ export function importGuide(text: string) {
     body: JSON.stringify({ text }),
   })
 }
+
+export async function reviseTripStream(
+  tripId: number,
+  message: string,
+  onLog?: (log: PlanStreamLog) => void,
+): Promise<Trip> {
+  const token = getStoredToken()
+  const response = await fetch(`${API_BASE}/api/ai/revise/stream`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify({ tripId, message }),
+  })
+
+  if (!response.ok) {
+    const body = (await response.json().catch(() => null)) as
+      | { message?: string | string[] }
+      | null
+    const msg = Array.isArray(body?.message)
+      ? body.message.join('；')
+      : body?.message ?? `请求失败（${response.status}）`
+    throw new ApiError(msg, response.status)
+  }
+
+  if (!response.body) {
+    throw new ApiError('修改流响应为空', 500)
+  }
+
+  const reader = response.body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ''
+  let trip: Trip | null = null
+
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) {
+      break
+    }
+
+    buffer += decoder.decode(value, { stream: true })
+    const lines = buffer.split('\n')
+    buffer = lines.pop() ?? ''
+
+    for (const line of lines) {
+      if (!line.trim()) {
+        continue
+      }
+
+      const event = JSON.parse(line) as {
+        type: string
+        kind?: string
+        text?: string
+        message?: string
+        data?: Trip
+      }
+
+      if (event.type === 'log' && event.kind && event.text) {
+        onLog?.({ kind: event.kind, text: event.text })
+      } else if (event.type === 'done' && event.data) {
+        trip = event.data
+      } else if (event.type === 'error') {
+        throw new ApiError(event.message ?? '修改失败', 500)
+      }
+    }
+  }
+
+  if (!trip) {
+    throw new ApiError('修改未完成', 500)
+  }
+
+  return trip
+}

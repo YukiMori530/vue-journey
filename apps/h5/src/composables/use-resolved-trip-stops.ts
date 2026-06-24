@@ -31,7 +31,14 @@ export function useResolvedTripStops(trip: Ref<Trip | undefined>) {
   const loading = ref(false)
 
   watch(
-    () => [trip.value?.id, trip.value?.dayPlans] as const,
+    () =>
+      [
+        trip.value?.id,
+        trip.value?.updatedAt,
+        trip.value?.placeCount,
+        trip.value?.title,
+        JSON.stringify(trip.value?.dayPlans),
+      ] as const,
     async () => {
       const current = trip.value
       if (!current?.dayPlans.length) {

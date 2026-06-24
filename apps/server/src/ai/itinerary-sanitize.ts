@@ -59,11 +59,24 @@ function redistributeOverflow(
   const result = days.map((day) => ({ ...day, pois: [...day.pois] }));
 
   for (const poi of overflow) {
-    const target = result.find(
+    const urbanDays = result.filter(
+      (day) => !day.pois.some((item) => isRemoteExcursion(item.name)),
+    );
+    urbanDays.sort((a, b) => a.pois.length - b.pois.length);
+
+    let target = result.find(
       (day) =>
         day.pois.length < MAX_POIS_PER_DAY &&
         !day.pois.some((item) => isRemoteExcursion(item.name)),
     );
+
+    if (!target && urbanDays.length) {
+      target = urbanDays[0];
+      if (target.pois.length >= MAX_POIS_PER_DAY) {
+        target.pois = target.pois.slice(0, MAX_POIS_PER_DAY - 1);
+      }
+    }
+
     if (target) {
       target.pois.push(poi);
     }

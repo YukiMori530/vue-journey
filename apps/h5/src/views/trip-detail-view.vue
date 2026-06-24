@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { showToast } from 'vant'
 import ConfirmDialog from '../components/confirm-dialog.vue'
+import TripChatSheet from '../components/trip-chat-sheet.vue'
 import TripOverviewMap from '../components/trip-overview-map.vue'
 import TripOverviewBody from '../components/trip-overview-body.vue'
 import TripDayItinerary from '../components/trip-day-itinerary.vue'
@@ -11,6 +12,8 @@ import { useTripStore } from '../stores/trip'
 import { useAuthStore } from '../stores/auth'
 import { useProfileStore } from '../stores/profile'
 import { enrichDayPlan } from '../utils/enrich-trip-stops'
+import { pickRevisionFocusDay } from '../utils/pick-revision-focus-day'
+import { showAppFailToast, showAppSuccessToast } from '../utils/app-toast'
 import { ApiError } from '../api/client'
 
 const route = useRoute()
@@ -21,6 +24,10 @@ const profileStore = useProfileStore()
 const detailLoading = ref(false)
 const selectedTab = ref<'overview' | 'pending' | number>('overview')
 const showDeleteDialog = ref(false)
+const deleting = ref(false)
+const showChatSheet = ref(false)
+const revising = ref(false)
+const chatSheetRef = ref<InstanceType<typeof TripChatSheet> | null>(null)
 
 const tripId = computed(() => Number(route.params.id))
 const trip = computed(() => tripStore.tripById(tripId.value))
@@ -99,22 +106,67 @@ function selectDayFromOverview(day: number) {
   selectedTab.value = day
 }
 
+function openChatSheet() {
+  if (isEmpty.value) {
+    showAppFailToast('先添加地点再调整行程')
+    return
+  }
+  showChatSheet.value = true
+}
+
+async function handleRevise(message: string) {
+  if (!trip.value || revising.value) {
+    return
+  }
+  revising.value = true
+  const beforePlans = trip.value.dayPlans.map((day) => ({
+    ...day,
+    places: [...day.places],
+  }))
+  try {
+    const updated = await tripStore.reviseTrip(trip.value.id, message, (log) => {
+      chatSheetRef.value?.appendThinkingStep(log.text)
+    })
+    const focusDay = pickRevisionFocusDay(beforePlans, updated, message)
+    showChatSheet.value = false
+    selectedTab.value = focusDay
+    showAppSuccessToast('行程已更新')
+  } catch (error) {
+    chatSheetRef.value?.failThinking(
+      error instanceof ApiError ? error.message : '修改失败，请稍后再试',
+    )
+  } finally {
+    revising.value = false
+  }
+}
+
 function openDeleteDialog() {
   showDeleteDialog.value = true
 }
 
+async function handleReviseSubmit(message: string) {
+  await handleRevise(message)
+}
+
 async function confirmDelete() {
-  if (!trip.value) {
+  if (!trip.value || deleting.value) {
     return
   }
+  deleting.value = true
+  const title = trip.value.title
   try {
     await tripStore.removeTrip(trip.value.id)
-    showToast('已删除')
-    router.push('/')
+    showDeleteDialog.value = false
+    await router.replace({
+      path: '/',
+      query: { deleted: '1', name: title },
+    })
   } catch (error) {
     if (error instanceof ApiError) {
-      showToast(error.message)
+      showAppFailToast(error.message)
     }
+  } finally {
+    deleting.value = false
   }
 }
 </script>
@@ -246,22 +298,31 @@ async function confirmDelete() {
     </section>
 
     <footer class="detail-footer">
-      <div class="ai-bar">
+      <button type="button" class="ai-bar" @click="openChatSheet">
         <van-icon name="chat-o" size="18" color="#7C5CBF" />
         <span>给途绘发送消息…</span>
-      </div>
-      <button type="button" class="edit-btn" @click="showToast('编辑功能开发中')">
+      </button>
+      <button type="button" class="edit-btn" @click="openChatSheet">
         <van-icon name="edit" size="16" />
-        编辑
+        调整
       </button>
     </footer>
+
+    <TripChatSheet
+      ref="chatSheetRef"
+      v-model:show="showChatSheet"
+      :trip="trip"
+      :busy="revising"
+      @submit="handleReviseSubmit"
+    />
 
     <ConfirmDialog
       v-model:show="showDeleteDialog"
       title="删除行程"
-      :message="`确定删除「${trip.title}」吗？`"
-      confirm-text="删除"
+      :message="`删除后无法恢复，确定移除「${trip.title}」吗？`"
+      confirm-text="确认删除"
       variant="danger"
+      :loading="deleting"
       @confirm="confirmDelete"
     />
   </div>
@@ -505,10 +566,13 @@ async function confirmDelete() {
   gap: 10px;
   align-items: center;
   padding: 12px 16px;
+  border: none;
   border-radius: 999px;
   background: #f2f3f5;
   font-size: 14px;
   color: #969799;
+  cursor: pointer;
+  text-align: left;
 }
 
 .edit-btn {

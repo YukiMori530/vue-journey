@@ -1,14 +1,16 @@
 <script setup lang="ts">
 import { computed, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { showToast } from 'vant'
 import TripCard from '../components/trip-card.vue'
 import AppHeader from '../components/app-header.vue'
 import { useTripStore } from '../stores/trip'
 import { useAuthStore } from '../stores/auth'
 import { ApiError } from '../api/client'
+import { showAppFailToast, showAppSuccessToast } from '../utils/app-toast'
 
 const router = useRouter()
+const route = useRoute()
 const tripStore = useTripStore()
 const authStore = useAuthStore()
 
@@ -25,7 +27,16 @@ onMounted(async () => {
   } catch (error) {
     const message =
       error instanceof ApiError ? error.message : '加载行程失败，请确认后端已启动'
-    showToast(message)
+    showAppFailToast(message)
+  }
+
+  if (route.query.deleted === '1') {
+    const name =
+      typeof route.query.name === 'string' && route.query.name.trim()
+        ? route.query.name.trim()
+        : '行程'
+    showAppSuccessToast(`「${name}」已移除`)
+    router.replace({ path: '/' })
   }
 })
 

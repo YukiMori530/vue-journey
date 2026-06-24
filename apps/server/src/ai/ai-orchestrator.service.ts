@@ -5,6 +5,8 @@ import {
   buildParseUserPrompt,
   buildPlanUserPrompt,
   buildRetryPrompt,
+  buildReviseUserPrompt,
+  REVISE_SYSTEM_PROMPT,
   SYSTEM_PROMPT,
 } from './prompts';
 import {
@@ -19,6 +21,11 @@ import {
 } from '../trips/trip-builder';
 import { parseGuideText } from '../trips/parse-guide';
 import type { PlanItineraryDto } from './dto/plan-itinerary.dto';
+import type { TripResponse } from '../trips/trip.types';
+import {
+  applyDeterministicRevision,
+  tripToItinerarySnapshot,
+} from './itinerary-revision.utils';
 import { z } from 'zod';
 
 const MAX_ATTEMPTS = 3;
@@ -85,8 +92,54 @@ export class AiOrchestratorService {
     }
   }
 
+  async reviseItinerary(
+    trip: TripResponse,
+    message: string,
+  ): Promise<ItineraryOutput> {
+    const dayPlans = trip.dayPlans.map((day) => ({
+      day: day.day,
+      title: day.title,
+      places: day.places.map((place) => ({
+        name: typeof place === 'string' ? place : place.name,
+        category: typeof place === 'string' ? undefined : place.category,
+      })),
+    }));
+
+    if (!this.client) {
+      this.logger.warn('DEEPSEEK_API_KEY 未配置，使用本地 mock 修订');
+      return this.mockReviseItinerary(trip, message, dayPlans);
+    }
+
+    try {
+      return await this.generateItinerary(
+        [
+          { role: 'system', content: REVISE_SYSTEM_PROMPT },
+          {
+            role: 'user',
+            content: buildReviseUserPrompt({
+              destination: trip.destination,
+              days: trip.days,
+              preferences: trip.preferences,
+              title: trip.title,
+              dayPlans,
+              message,
+            }),
+          },
+        ],
+        trip.days,
+      );
+    } catch (error) {
+      if (this.shouldFallbackToMock(error)) {
+        this.logger.warn(`DeepSeek 不可用（${this.describeAiError(error)}），回退 mock 修订`);
+        return this.mockReviseItinerary(trip, message, dayPlans);
+      }
+      throw error;
+    }
+  }
+
   private async generateItinerary(
     messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[],
+    expectedDays?: number,
   ): Promise<ItineraryOutput> {
     let lastError = '未知错误';
 
@@ -95,7 +148,7 @@ export class AiOrchestratorService {
         model: 'deepseek-chat',
         messages,
         response_format: { type: 'json_object' },
-        temperature: 0.4,
+        temperature: 0.35,
       });
 
       const content = response.choices[0]?.message?.content;
@@ -110,7 +163,16 @@ export class AiOrchestratorService {
 
       try {
         const parsed = JSON.parse(content) as unknown;
-        return validateItinerary(parsed);
+        const itinerary = validateItinerary(parsed);
+        if (expectedDays != null && itinerary.days.length !== expectedDays) {
+          lastError = `days 长度应为 ${expectedDays}，实际为 ${itinerary.days.length}`;
+          messages.push({
+            role: 'user',
+            content: buildRetryPrompt(lastError),
+          });
+          continue;
+        }
+        return itinerary;
       } catch (error) {
         if (error instanceof z.ZodError) {
           lastError = formatZodErrors(error);
@@ -192,5 +254,21 @@ export class AiOrchestratorService {
         })),
       })),
     };
+  }
+
+  private mockReviseItinerary(
+    trip: TripResponse,
+    message: string,
+    dayPlans: Array<{
+      day: number;
+      title?: string;
+      places: Array<{ name: string; category?: string }>;
+    }>,
+  ): ItineraryOutput {
+    const snapshot = tripToItinerarySnapshot({
+      title: trip.title,
+      days: dayPlans,
+    });
+    return applyDeterministicRevision(snapshot, message, trip.destination);
   }
 }
