@@ -7,6 +7,8 @@ import { mockDestinationWeather } from '../utils/trip-weather'
 import { useTripMetaStore } from '../stores/trip-meta'
 import TripNoteSheet from './trip-note-sheet.vue'
 import TripPackSheet from './trip-pack-sheet.vue'
+import PlaceCoverImage from './place-cover-image.vue'
+import { extractTripStopNames } from '../utils/place-photo'
 
 const props = defineProps<{
   trip: Trip
@@ -28,6 +30,7 @@ const weather = computed(() => mockDestinationWeather(props.trip.destination))
 const packCount = computed(() => metaStore.getMeta(props.trip.id).packItems.length)
 const packDone = computed(() => metaStore.packDoneCount(props.trip.id))
 const notePreview = computed(() => metaStore.getMeta(props.trip.id).note.trim())
+const galleryStops = computed(() => extractTripStopNames(props.trip, 4))
 
 const visibleDays = computed(() =>
   expanded.value ? props.days : props.days.slice(0, 1),
@@ -72,15 +75,23 @@ function openCollect() {
 
     <section class="block-card">
       <div class="block-card__head">
-        <h3>图片空间 · 1</h3>
+        <h3>图片空间 · {{ galleryStops.length || 1 }}</h3>
       </div>
       <div class="photo-grid">
         <button type="button" class="photo-add" aria-label="添加图片">
           <van-icon name="plus" size="22" color="#969799" />
         </button>
-        <div class="photo-item">
-          <img :src="trip.cover || '/covers/default.jpg'" alt="" />
-          <span class="photo-item__tag">封面</span>
+        <div
+          v-for="(stopName, index) in galleryStops"
+          :key="`${stopName}-${index}`"
+          class="photo-item"
+        >
+          <PlaceCoverImage
+            class="photo-item__img"
+            :name="stopName"
+            :destination="trip.destination"
+          />
+          <span v-if="index === 0" class="photo-item__tag">封面</span>
         </div>
       </div>
     </section>
@@ -244,10 +255,9 @@ function openCollect() {
   position: relative;
 }
 
-.photo-item img {
+.photo-item__img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
 }
 
 .photo-item__tag {

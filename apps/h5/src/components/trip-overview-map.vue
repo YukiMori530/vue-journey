@@ -30,6 +30,15 @@ const mapPolylines = shallowRef<AMap.Polyline[]>([])
 let renderSeq = 0
 let renderTimer: ReturnType<typeof setTimeout> | null = null
 
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null> {
+  return Promise.race([
+    promise,
+    new Promise<null>((resolve) => {
+      setTimeout(() => resolve(null), ms)
+    }),
+  ])
+}
+
 const visibleDays = computed(() => {
   if (props.highlightDay != null) {
     return props.days.filter((day) => day.day === props.highlightDay)
@@ -46,13 +55,17 @@ function clearMapOverlays() {
 
 async function renderMap() {
   const seq = ++renderSeq
-  if (!mapContainer.value || !visibleDays.value.length) {
+  if (!mapContainer.value) {
+    return
+  }
+
+  if (!visibleDays.value.length) {
     return
   }
 
   try {
-    await loadAMap(['AMap.Polyline'])
-    if (seq !== renderSeq) {
+    const AMapLib = await withTimeout(loadAMap(['AMap.Polyline']), 12_000)
+    if (!AMapLib || seq !== renderSeq) {
       return
     }
 
@@ -72,7 +85,7 @@ async function renderMap() {
       } else {
         center = [116.397, 39.903]
       }
-      mapInstance.value = new AMap.Map(mapContainer.value, {
+      mapInstance.value = new AMapLib.Map(mapContainer.value, {
         zoom: 12,
         center,
         viewMode: '2D',
@@ -91,10 +104,10 @@ async function renderMap() {
       }
 
       located.forEach((stop, index) => {
-        const marker = new AMap.Marker({
+        const marker = new AMapLib.Marker({
           position: [stop.lng!, stop.lat!],
           content: buildTripMapMarkerHtml(index + 1, stop.name, getDayColor(dayPlan.day)),
-          offset: new AMap.Pixel(TRIP_MAP_MARKER_OFFSET.x, TRIP_MAP_MARKER_OFFSET.y),
+          offset: new AMapLib.Pixel(TRIP_MAP_MARKER_OFFSET.x, TRIP_MAP_MARKER_OFFSET.y),
           zIndex: 100 + dayPlan.day * 10 + index,
         })
         marker.setMap(mapInstance.value!)
@@ -102,10 +115,10 @@ async function renderMap() {
       })
 
       if (props.highlightDay == null && located[0]) {
-        const badge = new AMap.Marker({
+        const badge = new AMapLib.Marker({
           position: [located[0].lng!, located[0].lat!],
           content: buildOverviewDayBadgeHtml(dayPlan.day, dayPlan.totalKm, getDayColor(dayPlan.day)),
-          offset: new AMap.Pixel(TRIP_MAP_DAY_BADGE_OFFSET.x, TRIP_MAP_DAY_BADGE_OFFSET.y),
+          offset: new AMapLib.Pixel(TRIP_MAP_DAY_BADGE_OFFSET.x, TRIP_MAP_DAY_BADGE_OFFSET.y),
           zIndex: 200 + dayPlan.day,
         })
         badge.setMap(mapInstance.value!)
@@ -126,7 +139,7 @@ async function renderMap() {
         if (path.length <= 1) {
           continue
         }
-        const polyline = new AMap.Polyline({
+        const polyline = new AMapLib.Polyline({
           path,
           ...buildRoutePolylineOptions(color, props.highlightDay != null),
         })
@@ -140,6 +153,12 @@ async function renderMap() {
 
     if (markers.length) {
       mapInstance.value.setFitView(markers, false, [56, 56, 56, 56])
+    } else if (props.destination) {
+      const geocoded = await geocodeCityCenter(props.destination)
+      const fallback = defaultCityCenter(props.destination)
+      const center = geocoded ?? fallback
+      mapInstance.value.setCenter([center.lng, center.lat])
+      mapInstance.value.setZoom(11)
     }
   } catch {
     // ignore map errors

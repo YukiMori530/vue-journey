@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed } from 'vue'
 import type { Trip } from '../types/trip'
 import { useAuthStore } from '../stores/auth'
 import { useProfileStore } from '../stores/profile'
-import { getTripCoverCandidates } from '../utils/trip-covers'
+import PlaceCoverImage from './place-cover-image.vue'
+import { getTripHeroStop } from '../utils/place-photo'
 import { resolveTripCardBg } from '../utils/trip-themes'
 
 const props = defineProps<{
@@ -16,28 +17,11 @@ const emit = defineEmits<{
 
 const authStore = useAuthStore()
 const profileStore = useProfileStore()
-const coverIndex = ref(0)
 
 const cardBg = computed(() => resolveTripCardBg(props.trip.theme, props.trip.id))
-const coverCandidates = computed(() => getTripCoverCandidates(props.trip))
-const currentCover = computed(
-  () => coverCandidates.value[coverIndex.value] ?? '/covers/default.jpg',
-)
+const heroStop = computed(() => getTripHeroStop(props.trip))
 const showCover = computed(() => props.trip.placeCount > 0)
 const dateLabel = computed(() => props.trip.nights || '未设置日期')
-
-watch(
-  () => props.trip.id,
-  () => {
-    coverIndex.value = 0
-  },
-)
-
-function onCoverError() {
-  if (coverIndex.value < coverCandidates.value.length - 1) {
-    coverIndex.value += 1
-  }
-}
 </script>
 
 <template>
@@ -55,12 +39,10 @@ function onCoverError() {
     />
 
     <div v-if="showCover" class="trip-card__cover-wrap">
-      <img
+      <PlaceCoverImage
         class="trip-card__cover"
-        :src="currentCover"
-        :alt="trip.title"
-        loading="lazy"
-        @error="onCoverError"
+        :name="heroStop.name"
+        :destination="heroStop.destination"
       />
     </div>
     <div v-else class="trip-card__cover-placeholder" aria-hidden="true">
@@ -127,11 +109,9 @@ function onCoverError() {
 }
 
 .trip-card__cover {
-  width: 100%;
-  height: 100%;
   border: 3px solid #fff;
   border-radius: 12px;
-  object-fit: cover;
+  overflow: hidden;
   box-shadow: 0 6px 20px rgb(0 0 0 / 12%);
 }
 

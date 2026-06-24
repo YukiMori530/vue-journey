@@ -1,4 +1,4 @@
-import { request } from './client'
+import { request, requestOptional } from './client'
 
 export interface GeoPoint {
   lng: number
@@ -11,8 +11,9 @@ export interface GeocodedPlace {
   lat?: number
 }
 
-export function fetchGeoStatus() {
-  return request<{ enabled: boolean }>('/api/geo/status')
+export async function fetchGeoStatus() {
+  const data = await requestOptional<{ enabled: boolean }>('/api/geo/status')
+  return data ?? { enabled: false }
 }
 
 export function geocodeCity(keyword: string) {
@@ -24,4 +25,17 @@ export function batchGeocode(destination: string, places: string[]) {
     method: 'POST',
     body: JSON.stringify({ destination, places }),
   })
+}
+
+export function fetchPlacePhoto(name: string, destination: string, category?: string) {
+  const params = new URLSearchParams({
+    name,
+    destination,
+  })
+  if (category) {
+    params.set('category', category)
+  }
+  return requestOptional<{ url: string | null }>(`/api/geo/place-photo?${params}`).then(
+    (data) => data?.url ?? null,
+  )
 }

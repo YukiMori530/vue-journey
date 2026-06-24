@@ -25,6 +25,12 @@ onMounted(async () => {
   try {
     await tripStore.fetchTrips()
   } catch (error) {
+    if (error instanceof ApiError && error.status === 401) {
+      authStore.logout()
+      showAppFailToast('登录已失效，请重新登录')
+      router.replace('/login')
+      return
+    }
     const message =
       error instanceof ApiError ? error.message : '加载行程失败，请确认后端已启动'
     showAppFailToast(message)

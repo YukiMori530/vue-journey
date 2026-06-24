@@ -41,3 +41,15 @@ export async function request<T>(path: string, options: RequestInit = {}): Promi
   const json = (await response.json()) as ApiResponse<T>
   return json.data
 }
+
+/** 失败时返回 null，不抛错（避免控制台堆栈；502 等多为后端热重载） */
+export async function requestOptional<T>(
+  path: string,
+  options: RequestInit = {},
+): Promise<T | null> {
+  try {
+    return await request<T>(path, options)
+  } catch {
+    return null
+  }
+}

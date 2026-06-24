@@ -6,10 +6,9 @@ type AppToastOptions = {
 
 export function showAppSuccessToast(message: string, options: AppToastOptions = {}) {
   showToast({
-    type: 'success',
     message,
     duration: options.duration ?? 2000,
-    position: 'top',
+    position: 'middle',
     className: 'app-toast app-toast--success',
     icon: 'success',
   })
@@ -17,10 +16,9 @@ export function showAppSuccessToast(message: string, options: AppToastOptions = 
 
 export function showAppFailToast(message: string, options: AppToastOptions = {}) {
   showToast({
-    type: 'fail',
     message,
     duration: options.duration ?? 2200,
-    position: 'top',
+    position: 'middle',
     className: 'app-toast app-toast--fail',
     icon: 'fail',
   })

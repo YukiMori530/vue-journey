@@ -15,53 +15,58 @@ body {
 }
 
 .app-toast.van-toast {
-  top: calc(52px + env(safe-area-inset-top, 0px)) !important;
+  left: 50% !important;
+  top: 50% !important;
+  transform: translate(-50%, -50%) !important;
   flex-direction: row !important;
   align-items: center !important;
   justify-content: center !important;
-  gap: 8px;
-  width: auto !important;
-  max-width: calc(100% - 40px);
+  gap: 10px;
+  width: max-content !important;
+  max-width: min(320px, calc(100vw - 48px));
   min-width: 0 !important;
   min-height: auto !important;
-  padding: 9px 16px 9px 10px !important;
-  border-radius: 999px !important;
-  background: rgb(255 255 255 / 94%) !important;
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
+  padding: 16px 20px !important;
+  border-radius: 16px !important;
+  background: rgb(255 255 255 / 98%) !important;
+  border: 1px solid rgb(124 92 191 / 10%);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   box-shadow:
-    0 6px 24px rgb(124 92 191 / 14%),
-    0 2px 8px rgb(0 0 0 / 6%);
-  color: #323233 !important;
-  font-size: 13px !important;
-  font-weight: 600;
-  line-height: 1.4;
+    0 12px 40px rgb(15 23 42 / 10%),
+    0 2px 8px rgb(15 23 42 / 4%);
+  color: #1a1a1a !important;
+  font-size: 14px !important;
+  font-weight: 500;
+  line-height: 1.45;
   pointer-events: none;
+  word-break: break-word;
 }
 
 .app-toast .van-toast__icon {
   flex-shrink: 0;
-  width: 22px !important;
-  height: 22px !important;
+  width: 24px !important;
+  height: 24px !important;
   margin: 0 !important;
-  font-size: 12px !important;
-  line-height: 22px !important;
+  font-size: 14px !important;
+  line-height: 24px !important;
   border-radius: 50%;
-  color: #fff !important;
 }
 
 .app-toast .van-toast__text {
   margin-top: 0 !important;
   padding: 0 !important;
-  max-width: 240px;
-  text-align: left;
-  line-height: 1.35;
+  max-width: none;
+  text-align: center;
+  line-height: 1.45;
 }
 
 .app-toast--success .van-toast__icon {
-  background: linear-gradient(135deg, #9b7fd4, #7c5cbf);
+  background: rgb(124 92 191 / 12%);
+  color: #7c5cbf !important;
 }
 
 .app-toast--fail .van-toast__icon {
-  background: linear-gradient(135deg, #ff7875, #ee0a24);
+  background: rgb(238 10 36 / 10%);
+  color: #ee0a24 !important;
 }

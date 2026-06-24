@@ -1,5 +1,4 @@
 import type { DayPlan, TripStop } from '../types/trip'
-import { pickStopCover } from './stop-covers'
 
 const CATEGORY_LABEL: Record<string, string> = {
   sight: '景点',
@@ -30,7 +29,6 @@ export function enrichStop(stop: TripStop, index: number, destination: string): 
       stop.description ??
       stop.tips ??
       `${stop.name}是当地值得停留的一站，建议预留 ${stop.duration ?? 90} 分钟慢慢体验。`,
-    cover: stop.cover ?? pickStopCover(stop.name, stop.category, index),
     categoryLabel: stop.categoryLabel ?? CATEGORY_LABEL[stop.category ?? 'sight'] ?? '景点',
   }
 }

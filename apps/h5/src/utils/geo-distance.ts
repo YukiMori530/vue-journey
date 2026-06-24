@@ -11,6 +11,78 @@ export const MAX_URBAN_FROM_CENTER_KM = 45
 export const MAX_REMOTE_FROM_CENTER_KM = 120
 export const MIN_POI_NAME_SCORE = 4
 
+/** 省/自治区级目的地：需从景点名推断具体城市 */
+const WIDE_AREA_DEST_RE =
+  /^(?:河北|河南|山东|山西|陕西|甘肃|云南|贵州|四川|广东|广西|湖南|湖北|江西|安徽|江苏|浙江|福建|辽宁|吉林|黑龙江|内蒙古|新疆|西藏|宁夏|青海|海南)$/
+
+const STOP_CITY_HINTS: Array<{ key: string; city: string }> = [
+  { key: '北戴河', city: '秦皇岛' },
+  { key: '山海关', city: '秦皇岛' },
+  { key: '老龙头', city: '秦皇岛' },
+  { key: '鸽子窝', city: '秦皇岛' },
+  { key: '老虎石', city: '秦皇岛' },
+  { key: '秦皇岛', city: '秦皇岛' },
+  { key: '避暑山庄', city: '承德' },
+  { key: '普宁寺', city: '承德' },
+  { key: '普陀宗乘', city: '承德' },
+  { key: '磬锤峰', city: '承德' },
+  { key: '二仙居', city: '承德' },
+  { key: '承德', city: '承德' },
+  { key: '石家庄', city: '石家庄' },
+  { key: '正定', city: '石家庄' },
+  { key: '赵州桥', city: '石家庄' },
+  { key: '野三坡', city: '保定' },
+  { key: '白洋淀', city: '保定' },
+  { key: '保定', city: '保定' },
+  { key: '崇礼', city: '张家口' },
+  { key: '张家口', city: '张家口' },
+  { key: '唐山', city: '唐山' },
+].sort((a, b) => b.key.length - a.key.length)
+
+export function isWideAreaDestination(destination: string): boolean {
+  const region = extractDestinationRegion(destination)
+  return WIDE_AREA_DEST_RE.test(region) || /(?:省|自治区)$/.test(destination.trim())
+}
+
+/** 从「河北经典三日游…」等标题提取省级/城市级目的地 */
+export function extractDestinationRegion(destination: string): string {
+  const trimmed = destination.trim()
+  for (const province of [
+    '河北', '河南', '山东', '山西', '陕西', '甘肃', '云南', '贵州', '四川',
+    '广东', '广西', '湖南', '湖北', '江西', '安徽', '江苏', '浙江', '福建',
+    '辽宁', '吉林', '黑龙江', '内蒙古', '新疆', '西藏', '宁夏', '青海', '海南',
+  ]) {
+    if (trimmed.startsWith(province)) {
+      return province
+    }
+  }
+  return normalizeCityName(trimmed)
+}
+
+/** 从景点名推断所在城市（跨省行程 / 省级目的地） */
+export function inferStopCity(name: string, destination: string): string {
+  const primary = primaryPlaceName(name)
+  for (const { key, city } of STOP_CITY_HINTS) {
+    if (primary.includes(key)) {
+      return normalizeCityName(city)
+    }
+  }
+  return normalizeCityName(destination) || destination
+}
+
+export function resolveStopGeoContext(
+  stopName: string,
+  destination: string,
+  tripCityCenter: GeoPoint | null,
+): { stopCity: string; center: GeoPoint | null } {
+  const stopCity = inferStopCity(stopName, destination)
+  const tripRegion = extractDestinationRegion(destination)
+  if (stopCity !== tripRegion) {
+    return { stopCity, center: defaultCityCenter(stopCity) }
+  }
+  return { stopCity, center: tripCityCenter ?? defaultCityCenter(stopCity) }
+}
+
 const REMOTE_EXCURSION_RE =
   /八达岭|慕田峪|居庸关|司马台|金山岭|古北口|十渡|明十三陵|十三陵|潭柘寺|红螺寺|青龙峡|古北水镇|雁栖湖|云蒙山|雾灵山|兵马俑|华清宫|乾陵|法门寺|阳关|玉门关|雅丹|魔鬼城|玉龙雪山|蓝月谷|泸沽湖|天门山|天子山|袁家界|武陵源|张家界国家森林公园|阳朔|十里画廊|蜈支洲岛|天涯海角|南山文化旅游区|养马岛|蓬莱阁|华山|泰山|黄山|峨眉山|青城山|都江堰|千岛湖|赛里木湖|喀纳斯|禾木|那拉提|抚仙湖|抚仙|洱海双廊|双廊古镇|束河古镇|白沙古镇/
 
@@ -71,6 +143,50 @@ const CITY_LANDMARKS: Record<string, Record<string, GeoPoint>> = {
     灵隐寺: { lng: 120.101, lat: 30.242 },
     河坊街: { lng: 120.169, lat: 30.241 },
   },
+  上海: {
+    新天地: { lng: 121.475, lat: 31.22 },
+    豫园: { lng: 121.492, lat: 31.227 },
+    城隍庙: { lng: 121.493, lat: 31.224 },
+    外滩: { lng: 121.49, lat: 31.24 },
+    南京路步行街: { lng: 121.475, lat: 31.234 },
+    武康路: { lng: 121.437, lat: 31.209 },
+    田子坊: { lng: 121.468, lat: 31.21 },
+    东方明珠: { lng: 121.495, lat: 31.24 },
+    陆家嘴: { lng: 121.503, lat: 31.239 },
+    静安寺: { lng: 121.447, lat: 31.224 },
+    迪士尼: { lng: 121.667, lat: 31.144 },
+  },
+  南昌: {
+    八一广场: { lng: 115.905, lat: 28.674 },
+    万寿宫: { lng: 115.889, lat: 28.676 },
+    大士院: { lng: 115.892, lat: 28.678 },
+    珠宝街: { lng: 115.89, lat: 28.675 },
+    滕王阁: { lng: 115.879, lat: 28.675 },
+    南昌之星: { lng: 115.876, lat: 28.653 },
+    艾溪湖: { lng: 115.965, lat: 28.697 },
+    秋水广场: { lng: 115.877, lat: 28.689 },
+  },
+  承德: {
+    避暑山庄: { lng: 117.937, lat: 40.989 },
+    普宁寺: { lng: 117.934, lat: 41.011 },
+    二仙居: { lng: 117.939, lat: 40.976 },
+    普陀宗乘之庙: { lng: 117.946, lat: 41.018 },
+    磬锤峰: { lng: 117.915, lat: 40.968 },
+  },
+  秦皇岛: {
+    山海关: { lng: 119.765, lat: 40.01 },
+    老龙头: { lng: 119.844, lat: 39.966 },
+    鸽子窝公园: { lng: 119.46, lat: 39.842 },
+    鸽子窝: { lng: 119.46, lat: 39.842 },
+    老虎石: { lng: 119.455, lat: 39.825 },
+    北戴河: { lng: 119.484, lat: 39.834 },
+    刘庄: { lng: 119.476, lat: 39.828 },
+    阿那亚: { lng: 119.316, lat: 39.667 },
+  },
+  石家庄: {
+    赵州桥: { lng: 114.776, lat: 37.718 },
+    正定古城: { lng: 114.569, lat: 38.144 },
+  },
   敦煌: {
     莫高窟: { lng: 94.809, lat: 40.042 },
     鸣沙山月牙泉: { lng: 94.668, lat: 40.089 },
@@ -128,17 +244,50 @@ function lookupInTable(
 }
 
 export function lookupKnownLandmark(name: string, city?: string): GeoPoint | null {
-  const primary = primaryPlaceName(name)
-  const cityName = city ? normalizeCityName(city) : ''
+  const citiesToTry = new Set<string>()
+  if (city) {
+    citiesToTry.add(extractDestinationRegion(city))
+    citiesToTry.add(inferStopCity(name, city))
+  }
 
-  if (cityName && CITY_LANDMARKS[cityName]) {
-    const cityMatch = lookupInTable(CITY_LANDMARKS[cityName], primary)
-    if (cityMatch) {
-      return cityMatch
+  for (const alias of landmarkSearchAliases(name, city)) {
+    for (const tryCity of citiesToTry) {
+      if (tryCity && CITY_LANDMARKS[tryCity]) {
+        const cityMatch = lookupInTable(CITY_LANDMARKS[tryCity], alias)
+        if (cityMatch) {
+          return cityMatch
+        }
+      }
+    }
+
+    const globalMatch = lookupInTable(GLOBAL_LANDMARKS, alias)
+    if (globalMatch) {
+      return globalMatch
     }
   }
 
-  return lookupInTable(GLOBAL_LANDMARKS, primary)
+  return null
+}
+
+/** 从长名称拆出可匹配地标的别名（如「大士院小吃街」→「大士院」） */
+export function landmarkSearchAliases(name: string, city?: string): string[] {
+  const cityName = city ? normalizeCityName(city) : ''
+  const primary = primaryPlaceName(name)
+  const stripped = primary.replace(new RegExp(`^${cityName}`), '').trim()
+  const aliases = [primary, stripped, name]
+
+  if (/小吃/.test(stripped)) {
+    const base = stripped.replace(/小吃.*$/, '').replace(/街$/, '').trim()
+    if (base) aliases.push(base)
+  }
+  if (/历史文化街区|历史街区|文化街区/.test(stripped)) {
+    aliases.push(stripped.replace(/历史文化街区|历史街区|文化街区/, '').trim())
+  }
+  if (/湿地/.test(stripped)) {
+    aliases.push(stripped.replace(/公园.*$/, '').trim())
+  }
+
+  return [...new Set(aliases.filter((item) => item.length >= 2))]
 }
 
 export function isRemoteExcursion(name: string): boolean {
@@ -175,14 +324,18 @@ export function isWithinDestination(
   point: GeoPoint,
   cityCenter: GeoPoint | null,
   stopName: string,
+  destination?: string,
 ): boolean {
-  if (!cityCenter) {
+  const center = destination
+    ? resolveStopGeoContext(stopName, destination, cityCenter).center
+    : cityCenter
+  if (!center) {
     return true
   }
   const maxKm = isRemoteExcursion(stopName)
     ? MAX_REMOTE_FROM_CENTER_KM
     : MAX_URBAN_FROM_CENTER_KM
-  return distanceKm(cityCenter, point) <= maxKm
+  return distanceKm(center, point) <= maxKm
 }
 
 export function isRemoteStopPoint(
@@ -338,9 +491,34 @@ export function buildPlaceQueries(name: string, city: string): string[] {
     stripped !== primary ? `${cityName}${stripped}` : '',
     stripped.includes('啤酒') ? `${cityName}市啤酒博物馆` : '',
     stripped.includes('奥帆') ? `${cityName}奥帆中心` : '',
-    stripped.includes('路') ? `${cityName}市市南区${stripped}` : '',
+    stripped.includes('路') && cityName !== '上海'
+      ? `${cityName}市市南区${stripped}`
+      : '',
+    stripped.includes('路') ? `${cityName}市${stripped}` : '',
     stripped,
   ]
+
+  if (/城隍庙|城隍/.test(stripped)) {
+    queries.push(`${cityName}城隍庙`, `${cityName}市城隍庙`)
+  }
+  if (/豫园/.test(stripped)) {
+    queries.push(`${cityName}豫园`, `${cityName}市豫园`, '豫园')
+  }
+  if (/新天地/.test(stripped)) {
+    queries.push(`${cityName}新天地`, `${cityName}市新天地`)
+  }
+  if (/小吃/.test(stripped)) {
+    const base = stripped.replace(/小吃.*$/, '').replace(/街$/, '').trim()
+    if (base) {
+      queries.push(`${cityName}${base}`, `${cityName}市${base}`, base)
+    }
+  }
+  if (/湿地/.test(stripped)) {
+    queries.push(`${cityName}${stripped}`, stripped.replace(/公园.*$/, ''))
+  }
+  if (/摩天轮|珠宝街|万寿宫|大士院/.test(stripped)) {
+    queries.push(`${cityName}${stripped}`, stripped)
+  }
 
   if (/长城|八达岭|慕田峪|居庸关|兵马俑|雅丹|玉龙雪山|阳朔/.test(stripped)) {
     queries.push(`${stripped}景区`, `${stripped}风景名胜区`)
@@ -359,9 +537,17 @@ const CITY_DEFAULT_CENTER: Record<string, GeoPoint> = {
   西安: { lng: 108.939, lat: 34.341 },
   杭州: { lng: 120.155, lat: 30.274 },
   敦煌: { lng: 94.662, lat: 40.142 },
+  河北: { lng: 114.514, lat: 38.042 },
+  石家庄: { lng: 114.514, lat: 38.042 },
+  承德: { lng: 117.939, lat: 40.976 },
+  秦皇岛: { lng: 119.6, lat: 39.935 },
+  南昌: { lng: 115.857, lat: 28.682 },
 }
 
 export function defaultCityCenter(city: string): GeoPoint {
-  const name = normalizeCityName(city)
-  return CITY_DEFAULT_CENTER[name] ?? { lng: 116.397, lat: 39.903 }
+  const region = extractDestinationRegion(city)
+  return CITY_DEFAULT_CENTER[region] ?? CITY_DEFAULT_CENTER[normalizeCityName(city)] ?? {
+    lng: 116.397,
+    lat: 39.903,
+  }
 }

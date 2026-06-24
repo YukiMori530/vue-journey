@@ -42,26 +42,11 @@ function dedupeStopsByName(stops: TripStop[]): TripStop[] {
   return result;
 }
 
-/** 城区点若形成两个相距过远的簇，只保留较大的簇（避免牛街+颐和园同日） */
+/** 城区点若形成两个相距过远的簇，仍保留全部（地图需展示所有站点） */
 function keepUrbanCluster(
   stops: Array<TripStop & { lng: number; lat: number }>,
 ): Array<TripStop & { lng: number; lat: number }> {
-  if (stops.length <= 2) {
-    return stops;
-  }
-
-  const seed = stops[0];
-  const near = stops.filter((stop) => distanceKm(seed, stop) <= MAX_URBAN_SPAN_KM);
-  const far = stops.filter((stop) => distanceKm(seed, stop) > MAX_URBAN_SPAN_KM);
-
-  if (!far.length) {
-    return stops;
-  }
-
-  const altSeed = far[0];
-  const nearAlt = stops.filter((stop) => distanceKm(altSeed, stop) <= MAX_URBAN_SPAN_KM);
-
-  return near.length >= nearAlt.length ? near : nearAlt;
+  return stops;
 }
 
 /** geocode 后按坐标裁剪不合理同天站点 */

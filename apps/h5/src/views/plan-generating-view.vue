@@ -3,6 +3,7 @@ import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { showToast } from 'vant'
 import PlanGeneratingMap from '../components/plan-generating-map.vue'
+import PlaceCoverImage from '../components/place-cover-image.vue'
 import type { GeneratingMapStop } from '../utils/plan-generation-script'
 import { useTripStore } from '../stores/trip'
 import { ApiError } from '../api/client'
@@ -73,6 +74,10 @@ const mapStops = computed<GeneratingMapStop[]>(() =>
     order: item.order,
     day: item.day,
   })),
+)
+
+const photoDestination = computed(
+  () => tripResult.value?.destination ?? parsed.value.destination,
 )
 
 async function buildFlatStops(trip: Trip) {
@@ -270,15 +275,12 @@ onUnmounted(() => {
             {{ item.dayTitle }}
           </h3>
           <article class="gen-preview__card">
-            <img
-              v-if="item.stop.cover"
+            <PlaceCoverImage
               class="gen-preview__cover"
-              :src="item.stop.cover"
-              :alt="item.stop.name"
+              :name="item.stop.name"
+              :destination="photoDestination"
+              :category="item.stop.category"
             />
-            <div v-else class="gen-preview__cover gen-preview__cover--placeholder">
-              <van-icon name="photo-o" size="24" color="#c8c9cc" />
-            </div>
             <div class="gen-preview__body">
               <h4>{{ item.order }}. {{ item.stop.name }}</h4>
               <p>{{ item.stop.description }}</p>
@@ -449,15 +451,6 @@ onUnmounted(() => {
   width: 64px;
   height: 64px;
   border-radius: 10px;
-  object-fit: cover;
-  flex-shrink: 0;
-}
-
-.gen-preview__cover--placeholder {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: #f2f3f5;
 }
 
 .gen-preview__body h4 {

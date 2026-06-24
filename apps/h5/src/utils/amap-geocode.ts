@@ -4,7 +4,6 @@ import {
   distanceKm,
   isCoordNearCluster,
   isCoordPlausibleForStop,
-  isCoordTooCloseToAny,
   isNonAttractionPoi,
   MIN_POI_NAME_SCORE,
   poiNameScore,
@@ -71,7 +70,6 @@ function pickBestJsPoi(
       score: poiNameScore(poi.name, keyword),
     }))
     .filter(({ score }) => score >= MIN_POI_NAME_SCORE)
-    .filter(({ point }) => !isCoordTooCloseToAny(point, clusterAnchors))
     .filter(({ point }) =>
       anchor ? isCoordPlausibleForStop(point, anchor, keyword) : true,
     )
@@ -111,8 +109,7 @@ export async function searchPlaceByJs(
     isCoordPlausibleForStop(cached, anchor ?? null, keyword) &&
     (shouldBindToCluster(keyword)
       ? isCoordNearCluster(cached, clusterAnchors)
-      : true) &&
-    !isCoordTooCloseToAny(cached, clusterAnchors)
+      : true)
   ) {
     return cached
   }

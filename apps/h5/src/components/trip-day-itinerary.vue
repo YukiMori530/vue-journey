@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { TripStop } from '../types/trip'
+import PlaceCoverImage from './place-cover-image.vue'
 import { enrichStop } from '../utils/enrich-trip-stops'
 
 const props = defineProps<{
@@ -26,7 +27,12 @@ const enrichedStops = computed(() =>
       </div>
 
       <article class="stop-card">
-        <img v-if="stop.cover" class="stop-card__cover" :src="stop.cover" :alt="stop.name" />
+        <PlaceCoverImage
+          class="stop-card__cover"
+          :name="stop.name"
+          :destination="destination"
+          :category="stop.category"
+        />
         <div class="stop-card__body">
           <div class="stop-card__head">
             <h3>{{ index + 1 }}. {{ stop.name }}</h3>
@@ -80,8 +86,6 @@ const enrichedStops = computed(() =>
   width: 72px;
   height: 72px;
   border-radius: 12px;
-  object-fit: cover;
-  flex-shrink: 0;
 }
 
 .stop-card__body {

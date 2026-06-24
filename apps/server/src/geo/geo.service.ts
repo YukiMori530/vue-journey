@@ -3,18 +3,22 @@ import { ConfigService } from '@nestjs/config';
 import type { DayPlan, TripStop } from '../trips/trip.types';
 import {
   buildPlaceQueries,
+  defaultCityCenter,
   distanceKm,
+  extractDestinationRegion,
+  inferStopCity,
   isCoordNearCluster,
   isCoordPlausibleForStop,
   isRemoteExcursion,
-  isCoordTooCloseToAny,
   isNonAttractionPoi,
   isNonAttractionStop,
+  isWideAreaDestination,
   isWithinDestination,
   lookupKnownLandmark,
   MIN_POI_NAME_SCORE,
   normalizeCityName,
   poiNameScore,
+  resolveStopGeoContext,
   shouldAddToUrbanCluster,
   shouldBindToCluster,
   type GeoPoint,
@@ -30,10 +34,19 @@ interface AmapGeoResponse {
 }
 
 interface AmapPoi {
+  id?: string;
   location: string;
   name: string;
   cityname?: string;
   adname?: string;
+  photos?: Array<{ url?: string; title?: string }>;
+}
+
+interface AmapPlaceDetailResponse {
+  status: string;
+  pois?: Array<{
+    photos?: Array<{ url?: string; title?: string }>;
+  }>;
 }
 
 interface AmapPlaceResponse {
@@ -77,6 +90,10 @@ export class GeoService {
   }
 
   async geocodeCity(keyword: string): Promise<GeoPoint | null> {
+    if (isWideAreaDestination(keyword)) {
+      return defaultCityCenter(extractDestinationRegion(keyword));
+    }
+
     const cacheKey = `city:${keyword}`;
     const cached = this.cache.get(cacheKey);
     if (cached) {
@@ -163,7 +180,6 @@ export class GeoService {
     const pool = inCity.length ? inCity : points;
     const candidates = pool
       .filter(({ poi }) => !isNonAttractionPoi(poi.name))
-      .filter(({ point }) => !isCoordTooCloseToAny(point, clusterAnchors))
       .filter(({ point }) =>
         anchor ? isCoordPlausibleForStop(point, anchor, keyword) : true,
       )
@@ -195,6 +211,78 @@ export class GeoService {
     return candidates[0].point;
   }
 
+  private readonly photoCache = new Map<string, string | null>();
+
+  /** 从高德 POI 取首张实景图（全国通用，需配置 AMAP_WEB_KEY） */
+  async searchPlacePhoto(keyword: string, city: string): Promise<string | null> {
+    if (!this.enabled) {
+      return null;
+    }
+
+    const cacheKey = `photo:${city}:${keyword}`;
+    if (this.photoCache.has(cacheKey)) {
+      return this.photoCache.get(cacheKey) ?? null;
+    }
+
+    const cityName = normalizeCityName(city) || city;
+
+    for (const keywords of buildPlaceQueries(keyword, city)) {
+      const url = new URL('https://restapi.amap.com/v3/place/text');
+      url.searchParams.set('keywords', keywords);
+      url.searchParams.set('city', cityName);
+      url.searchParams.set('citylimit', 'true');
+      url.searchParams.set('extensions', 'all');
+      url.searchParams.set('offset', '5');
+      url.searchParams.set('page', '1');
+      url.searchParams.set('key', this.apiKey);
+
+      try {
+        const response = await fetch(url);
+        const data = (await response.json()) as AmapPlaceResponse;
+        if (data.status !== '1' || !data.pois?.length) {
+          continue;
+        }
+
+        for (const poi of data.pois) {
+          const direct = poi.photos?.find((item) => item.url)?.url;
+          if (direct) {
+            this.photoCache.set(cacheKey, direct);
+            return direct;
+          }
+
+          if (poi.id) {
+            const detailUrl = await this.fetchPlaceDetailPhoto(poi.id);
+            if (detailUrl) {
+              this.photoCache.set(cacheKey, detailUrl);
+              return detailUrl;
+            }
+          }
+        }
+      } catch (error) {
+        this.logger.warn(`POI 图片搜索失败: ${keywords} @ ${cityName}`, error);
+      }
+    }
+
+    this.photoCache.set(cacheKey, null);
+    return null;
+  }
+
+  private async fetchPlaceDetailPhoto(poiId: string): Promise<string | null> {
+    const url = new URL('https://restapi.amap.com/v3/place/detail');
+    url.searchParams.set('id', poiId);
+    url.searchParams.set('extensions', 'all');
+    url.searchParams.set('key', this.apiKey);
+
+    try {
+      const response = await fetch(url);
+      const data = (await response.json()) as AmapPlaceDetailResponse;
+      const photos = data.pois?.[0]?.photos;
+      return photos?.find((item) => item.url)?.url ?? null;
+    } catch {
+      return null;
+    }
+  }
+
   async searchPlace(
     keyword: string,
     city: string,
@@ -208,8 +296,7 @@ export class GeoService {
       isCoordPlausibleForStop(cached, anchor ?? null, keyword) &&
       (shouldBindToCluster(keyword)
         ? isCoordNearCluster(cached, clusterAnchors)
-        : true) &&
-      !isCoordTooCloseToAny(cached, clusterAnchors)
+        : true)
     ) {
       return cached;
     }
@@ -259,41 +346,51 @@ export class GeoService {
     stopIndex: number,
     cityCenter: GeoPoint | null,
     urbanClusterAnchors: GeoPoint[],
+    clusterCity: string | null,
   ): Promise<GeoPoint | null> {
-    const city = normalizeCityName(destination) || destination;
+    const stopCity = inferStopCity(name, destination);
+    const { center: stopCenter } = resolveStopGeoContext(
+      name,
+      destination,
+      cityCenter,
+    );
+    const useCluster =
+      clusterCity === stopCity && urbanClusterAnchors.length
+        ? urbanClusterAnchors
+        : [];
 
     if (isNonAttractionStop(name)) {
       return null;
     }
 
-    const known = lookupKnownLandmark(name, city);
-    if (known && isWithinDestination(known, cityCenter, name)) {
+    const known = lookupKnownLandmark(name, destination);
+    if (known && isWithinDestination(known, cityCenter, name, destination)) {
       return known;
     }
 
     const remote = isRemoteExcursion(name);
     const anchor = remote
-      ? cityCenter
-      : urbanClusterAnchors.length
+      ? stopCenter
+      : useCluster.length
         ? {
             lng:
-              urbanClusterAnchors.reduce((sum, item) => sum + item.lng, 0) /
-              urbanClusterAnchors.length,
+              useCluster.reduce((sum, item) => sum + item.lng, 0) /
+              useCluster.length,
             lat:
-              urbanClusterAnchors.reduce((sum, item) => sum + item.lat, 0) /
-              urbanClusterAnchors.length,
+              useCluster.reduce((sum, item) => sum + item.lat, 0) /
+              useCluster.length,
           }
-        : cityCenter;
+        : stopCenter;
 
     const searched = await this.searchPlace(
       name,
-      city,
+      stopCity,
       anchor,
-      urbanClusterAnchors,
+      useCluster,
     );
     if (
       searched &&
-      isWithinDestination(searched, cityCenter, name) &&
+      isWithinDestination(searched, cityCenter, name, destination) &&
       isCoordPlausibleForStop(searched, anchor, name)
     ) {
       return searched;
@@ -309,10 +406,16 @@ export class GeoService {
   ): Promise<TripStop[]> {
     const resolved: TripStop[] = [];
     const urbanClusterAnchors: GeoPoint[] = [];
+    let clusterCity: string | null = null;
 
     for (let stopIndex = 0; stopIndex < places.length; stopIndex += 1) {
       const raw = places[stopIndex];
       const name = placeName(raw);
+      const stopCity = inferStopCity(name, destination);
+      if (clusterCity && stopCity !== clusterCity) {
+        urbanClusterAnchors.length = 0;
+      }
+      clusterCity = stopCity;
 
       if (hasCoords(raw)) {
         const stop = raw as TripStop;
@@ -321,9 +424,9 @@ export class GeoService {
         if (
           isCoordPlausibleForStop(point, anchor, name) &&
           (shouldBindToCluster(name)
-            ? isCoordNearCluster(point, urbanClusterAnchors)
-            : true) &&
-          !isCoordTooCloseToAny(point, urbanClusterAnchors)
+            ? !urbanClusterAnchors.length ||
+              isCoordNearCluster(point, urbanClusterAnchors)
+            : true)
         ) {
           resolved.push(stop);
           if (shouldAddToUrbanCluster(name)) {
@@ -339,6 +442,7 @@ export class GeoService {
         stopIndex,
         cityCenter,
         urbanClusterAnchors,
+        clusterCity,
       );
 
       const stop = toStop(raw, coords ?? undefined);
@@ -383,16 +487,24 @@ export class GeoService {
 
     const cityCenter = await this.geocodeCity(destination);
     const urbanClusterAnchors: GeoPoint[] = [];
+    let clusterCity: string | null = null;
     const results: Array<{ name: string; lng?: number; lat?: number }> = [];
 
     for (let index = 0; index < names.length; index += 1) {
       const name = names[index];
+      const stopCity = inferStopCity(name, destination);
+      if (clusterCity && stopCity !== clusterCity) {
+        urbanClusterAnchors.length = 0;
+      }
+      clusterCity = stopCity;
+
       const coords = await this.resolveStop(
         name,
         destination,
         index,
         cityCenter,
         urbanClusterAnchors,
+        clusterCity,
       );
       if (coords && shouldAddToUrbanCluster(name)) {
         urbanClusterAnchors.push(coords);

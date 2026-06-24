@@ -3,7 +3,6 @@ import type { TripStop } from '../types/trip'
 
 const MIN_WAYPOINT_KM = 0.2
 const MAX_STOPS_PER_DAY = 3
-const MAX_URBAN_SPAN_KM = 16
 
 function stopNameKey(name: string): string {
   const primary = primaryPlaceName(name).replace(/\s/g, '')
@@ -118,7 +117,11 @@ export function dedupeNearbyStops(stops: TripStop[]): TripStop[] {
       | undefined
 
     if (prev && distanceKm(prev, stop) < MIN_WAYPOINT_KM) {
-      continue
+      const samePlace = stopNameKey(prev.name) === stopNameKey(stop.name)
+      const duplicatePoint = distanceKm(prev, stop) < 0.05
+      if (samePlace || duplicatePoint) {
+        continue
+      }
     }
 
     result.push(stop)
@@ -173,22 +176,15 @@ export function optimizeStopOrder(
     return twoOptImprove(best)
   }
 
-  const urbanCluster = (() => {
-    if (urban.length <= 2) return urban
-    const seed = urban[0]
-    const near = urban.filter((stop) => distanceKm(seed, stop) <= MAX_URBAN_SPAN_KM)
-    const far = urban.filter((stop) => distanceKm(seed, stop) > MAX_URBAN_SPAN_KM)
-    if (!far.length) return urban
-    const altSeed = far[0]
-    const nearAlt = urban.filter((stop) => distanceKm(altSeed, stop) <= MAX_URBAN_SPAN_KM)
-    return near.length >= nearAlt.length ? near : nearAlt
-  })()
-
   if (remote.length && urban.length) {
-    return [...orderGroup(remote), ...missing].slice(0, MAX_STOPS_PER_DAY)
+    return [
+      ...orderGroup(urban),
+      ...orderGroup(remote),
+      ...missing,
+    ].slice(0, MAX_STOPS_PER_DAY)
   }
 
-  return [...orderGroup(urbanCluster), ...orderGroup(remote), ...missing].slice(
+  return [...orderGroup(urban), ...orderGroup(remote), ...missing].slice(
     0,
     MAX_STOPS_PER_DAY,
   )

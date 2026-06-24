@@ -6,14 +6,18 @@ import {
 } from './amap-geocode'
 import {
   buildPlaceQueries,
+  defaultCityCenter,
+  extractDestinationRegion,
+  inferStopCity,
   isCoordNearCluster,
   isCoordPlausibleForStop,
-  isCoordTooCloseToAny,
   isNonAttractionStop,
   isRemoteExcursion,
   isWithinDestination,
+  isWideAreaDestination,
   lookupKnownLandmark,
   normalizeCityName,
+  resolveStopGeoContext,
   shouldAddToUrbanCluster,
   shouldBindToCluster,
 } from './geo-distance'
@@ -27,6 +31,16 @@ import {
 let backendGeoEnabled: boolean | null = null
 let backendGeoCheckedAt = 0
 const GEO_STATUS_TTL_MS = 12_000
+const GEO_STOP_TIMEOUT_MS = 8_000
+
+function withTimeout<T>(promise: Promise<T>, ms: number, fallback: T): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((resolve) => {
+      setTimeout(() => resolve(fallback), ms)
+    }),
+  ])
+}
 
 async function isBackendGeoEnabled() {
   const now = Date.now()
@@ -43,7 +57,6 @@ async function isBackendGeoEnabled() {
     backendGeoEnabled = status.enabled ? true : null
     return status.enabled
   } catch {
-    // 后端热重载时会短暂 502，不要永久禁用后端 geocode
     backendGeoCheckedAt = now
     backendGeoEnabled = null
     return false
@@ -51,6 +64,10 @@ async function isBackendGeoEnabled() {
 }
 
 export async function geocodeCityCenter(destination: string): Promise<GeoPoint | null> {
+  if (isWideAreaDestination(destination)) {
+    return defaultCityCenter(extractDestinationRegion(destination))
+  }
+
   if (await isBackendGeoEnabled()) {
     try {
       const point = await geoApi.geocodeCity(destination)
@@ -71,60 +88,64 @@ async function resolveSingleStop(
   stopIndex: number,
   cityCenter: GeoPoint | null,
   urbanClusterAnchors: GeoPoint[],
-  coordMap: Map<string, GeoPoint>,
+  clusterCity: string | null,
 ): Promise<TripStop> {
-  const city = normalizeCityName(destination) || destination
+  const stopCity = inferStopCity(stop.name, destination)
+  const { center: stopCenter } = resolveStopGeoContext(
+    stop.name,
+    destination,
+    cityCenter,
+  )
+  const useCluster =
+    clusterCity === stopCity && urbanClusterAnchors.length
+      ? urbanClusterAnchors
+      : []
 
   if (isNonAttractionStop(stop.name)) {
     return stop
   }
 
-  const known = lookupKnownLandmark(stop.name, city)
-  if (known && isWithinDestination(known, cityCenter, stop.name)) {
+  const known = lookupKnownLandmark(stop.name, destination)
+  if (known && isWithinDestination(known, cityCenter, stop.name, destination)) {
     return { ...stop, ...known }
   }
 
   const remote = isRemoteExcursion(stop.name)
   const anchor = remote
-    ? cityCenter
-    : urbanClusterAnchors.length
+    ? stopCenter
+    : useCluster.length
       ? {
-          lng: urbanClusterAnchors.reduce((sum, item) => sum + item.lng, 0) / urbanClusterAnchors.length,
-          lat: urbanClusterAnchors.reduce((sum, item) => sum + item.lat, 0) / urbanClusterAnchors.length,
+          lng: useCluster.reduce((sum, item) => sum + item.lng, 0) / useCluster.length,
+          lat: useCluster.reduce((sum, item) => sum + item.lat, 0) / useCluster.length,
         }
-      : cityCenter
+      : stopCenter
 
   if (
     stop.lng != null &&
     stop.lat != null &&
-    isWithinDestination({ lng: stop.lng, lat: stop.lat }, cityCenter, stop.name) &&
+    isWithinDestination({ lng: stop.lng, lat: stop.lat }, cityCenter, stop.name, destination) &&
     isCoordPlausibleForStop({ lng: stop.lng, lat: stop.lat }, anchor, stop.name) &&
     (shouldBindToCluster(stop.name)
-      ? isCoordNearCluster({ lng: stop.lng, lat: stop.lat }, urbanClusterAnchors)
-      : true) &&
-    !isCoordTooCloseToAny({ lng: stop.lng, lat: stop.lat }, urbanClusterAnchors)
+      ? !useCluster.length || isCoordNearCluster({ lng: stop.lng, lat: stop.lat }, useCluster)
+      : true)
   ) {
     return stop
   }
 
-  const mapped = coordMap.get(stop.name)
-  if (
-    mapped &&
-    isWithinDestination(mapped, cityCenter, stop.name) &&
-    isCoordPlausibleForStop(mapped, anchor, stop.name) &&
-    (shouldBindToCluster(stop.name)
-      ? isCoordNearCluster(mapped, urbanClusterAnchors)
-      : true) &&
-    !isCoordTooCloseToAny(mapped, urbanClusterAnchors)
-  ) {
-    return { ...stop, ...mapped }
+  const mapped = coordMapPlaceholder(stop, destination, cityCenter)
+  if (mapped) {
+    return mapped
   }
 
   let point: GeoPoint | null = null
 
-  for (const query of buildPlaceQueries(stop.name, city)) {
-    point = await searchPlaceByJs(query, city, anchor, urbanClusterAnchors)
-    if (point && isWithinDestination(point, cityCenter, stop.name)) {
+  for (const query of buildPlaceQueries(stop.name, stopCity)) {
+    point = await withTimeout(
+      searchPlaceByJs(query, stopCity, anchor, useCluster),
+      GEO_STOP_TIMEOUT_MS,
+      null,
+    )
+    if (point && isWithinDestination(point, cityCenter, stop.name, destination)) {
       break
     }
     point = null
@@ -133,22 +154,56 @@ async function resolveSingleStop(
   return point ? { ...stop, ...point } : stop
 }
 
+const batchCoordCache = new Map<string, GeoPoint>()
+
+function batchCacheKey(destination: string, name: string): string {
+  return `${destination}::${name}`
+}
+
+function coordMapPlaceholder(
+  stop: TripStop,
+  destination: string,
+  cityCenter: GeoPoint | null,
+): TripStop | null {
+  const mapped = batchCoordCache.get(batchCacheKey(destination, stop.name))
+  if (!mapped) {
+    return null
+  }
+  const stopCity = inferStopCity(stop.name, destination)
+  const { center: stopCenter } = resolveStopGeoContext(
+    stop.name,
+    destination,
+    cityCenter,
+  )
+  const anchor = stopCenter
+  if (
+    isWithinDestination(mapped, cityCenter, stop.name, destination) &&
+    isCoordPlausibleForStop(mapped, anchor, stop.name)
+  ) {
+    return { ...stop, ...mapped }
+  }
+  return null
+}
+
 export async function resolveDayStops(
   stops: TripStop[],
   destination: string,
   dayIndex: number,
 ): Promise<TripStop[]> {
   const cityCenter = await geocodeCityCenter(destination)
-  const coordMap = new Map<string, GeoPoint>()
+  batchCoordCache.clear()
   const urbanClusterAnchors: GeoPoint[] = []
+  let clusterCity: string | null = null
 
   const needsLookup = stops.some(
     (stop) =>
       stop.lng == null ||
       stop.lat == null ||
-      !isCoordPlausibleForStop({ lng: stop.lng!, lat: stop.lat! }, cityCenter, stop.name) ||
-      (shouldBindToCluster(stop.name) &&
-        !isCoordNearCluster({ lng: stop.lng!, lat: stop.lat! }, urbanClusterAnchors)),
+      !isCoordPlausibleForStop(
+        { lng: stop.lng!, lat: stop.lat! },
+        cityCenter,
+        stop.name,
+      ),
   )
 
   if (needsLookup && (await isBackendGeoEnabled())) {
@@ -161,10 +216,10 @@ export async function resolveDayStops(
         if (item.lng != null && item.lat != null) {
           const point = { lng: item.lng, lat: item.lat }
           if (
-            isWithinDestination(point, cityCenter, item.name) &&
+            isWithinDestination(point, cityCenter, item.name, destination) &&
             isCoordPlausibleForStop(point, cityCenter, item.name)
           ) {
-            coordMap.set(item.name, point)
+            batchCoordCache.set(batchCacheKey(destination, item.name), point)
           }
         }
       })
@@ -175,16 +230,27 @@ export async function resolveDayStops(
 
   const resolved: TripStop[] = []
   for (let index = 0; index < stops.length; index += 1) {
+    const stopCity = inferStopCity(stops[index].name, destination)
+    if (clusterCity && stopCity !== clusterCity) {
+      urbanClusterAnchors.length = 0
+    }
+    clusterCity = stopCity
+
     const stop = await resolveSingleStop(
       stops[index],
       destination,
       index,
       cityCenter,
       urbanClusterAnchors,
-      coordMap,
+      clusterCity,
     )
     resolved.push(stop)
-    if (stop.lng != null && stop.lat != null && shouldAddToUrbanCluster(stops[index].name)) {
+    if (
+      stop.lng != null &&
+      stop.lat != null &&
+      shouldAddToUrbanCluster(stops[index].name) &&
+      clusterCity === stopCity
+    ) {
       urbanClusterAnchors.push({ lng: stop.lng, lat: stop.lat })
     }
   }
