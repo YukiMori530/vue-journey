@@ -1,7 +1,29 @@
-import { distanceKm, type GeoPoint } from './geo-distance'
+import { distanceKm, isRemoteExcursion, isRemoteStopPoint, primaryPlaceName, type GeoPoint } from './geo-distance'
 import type { TripStop } from '../types/trip'
 
 const MIN_WAYPOINT_KM = 0.2
+const MAX_STOPS_PER_DAY = 3
+const MAX_URBAN_SPAN_KM = 16
+
+function stopNameKey(name: string): string {
+  const primary = primaryPlaceName(name).replace(/\s/g, '')
+  if (/颐和园/.test(primary)) return '颐和园'
+  if (/圆明园/.test(primary)) return '圆明园'
+  if (/故宫/.test(primary)) return '故宫'
+  return primary
+}
+
+function dedupeStopsByName(stops: TripStop[]): TripStop[] {
+  const seen = new Set<string>()
+  const result: TripStop[] = []
+  for (const stop of stops) {
+    const key = stopNameKey(stop.name)
+    if (seen.has(key)) continue
+    seen.add(key)
+    result.push(stop)
+  }
+  return result
+}
 
 function hasCoords(stop: TripStop): stop is TripStop & { lng: number; lat: number } {
   return stop.lng != null && stop.lat != null
@@ -81,11 +103,11 @@ function twoOptImprove(
   return path
 }
 
-/** 去重过近站点，避免路线打结 */
+/** 去重过近/同名站点，避免路线打结 */
 export function dedupeNearbyStops(stops: TripStop[]): TripStop[] {
   const result: TripStop[] = []
 
-  for (const stop of stops) {
+  for (const stop of dedupeStopsByName(stops)) {
     if (!hasCoords(stop)) {
       result.push(stop)
       continue
@@ -102,11 +124,14 @@ export function dedupeNearbyStops(stops: TripStop[]): TripStop[] {
     result.push(stop)
   }
 
-  return result
+  return result.slice(0, MAX_STOPS_PER_DAY)
 }
 
-/** 优化同天访问顺序，减少折返 */
-export function optimizeStopOrder(stops: TripStop[]): TripStop[] {
+/** 优化同天访问顺序：城区一组、远郊（长城等）放最后 */
+export function optimizeStopOrder(
+  stops: TripStop[],
+  cityCenter?: GeoPoint | null,
+): TripStop[] {
   const located = stops.filter(hasCoords)
   const missing = stops.filter((stop) => !hasCoords(stop))
 
@@ -114,20 +139,59 @@ export function optimizeStopOrder(stops: TripStop[]): TripStop[] {
     return stops
   }
 
-  let best = nearestNeighborTour(located, 0)
-  let bestLength = routeLength(best)
+  const remote = located.filter((stop) =>
+    isRemoteStopPoint(stop.name, stop, cityCenter ?? null),
+  )
+  const urban = located.filter((stop) => !remote.includes(stop))
 
-  for (let start = 1; start < located.length; start += 1) {
-    const candidate = twoOptImprove(nearestNeighborTour(located, start))
-    const length = routeLength(candidate)
-    if (length < bestLength) {
-      best = candidate
-      bestLength = length
+  const orderGroup = (group: Array<TripStop & { lng: number; lat: number }>) => {
+    if (group.length <= 2) {
+      return group
     }
+
+    let best = nearestNeighborTour(group, 0)
+    let bestLength = routeLength(best)
+
+    for (let start = 0; start < group.length; start += 1) {
+      const candidate = twoOptImprove(nearestNeighborTour(group, start))
+      const length = routeLength(candidate)
+      if (length < bestLength) {
+        best = candidate
+        bestLength = length
+      }
+    }
+
+    if (cityCenter && group.length) {
+      const startIndex = group.reduce((bestIndex, stop, index) => {
+        const currentBest = distanceKm(cityCenter, group[bestIndex])
+        const candidate = distanceKm(cityCenter, stop)
+        return candidate < currentBest ? index : bestIndex
+      }, 0)
+      best = twoOptImprove(nearestNeighborTour(group, startIndex))
+    }
+
+    return twoOptImprove(best)
   }
 
-  best = twoOptImprove(best)
-  return [...best, ...missing]
+  const urbanCluster = (() => {
+    if (urban.length <= 2) return urban
+    const seed = urban[0]
+    const near = urban.filter((stop) => distanceKm(seed, stop) <= MAX_URBAN_SPAN_KM)
+    const far = urban.filter((stop) => distanceKm(seed, stop) > MAX_URBAN_SPAN_KM)
+    if (!far.length) return urban
+    const altSeed = far[0]
+    const nearAlt = urban.filter((stop) => distanceKm(altSeed, stop) <= MAX_URBAN_SPAN_KM)
+    return near.length >= nearAlt.length ? near : nearAlt
+  })()
+
+  if (remote.length && urban.length) {
+    return [...orderGroup(remote), ...missing].slice(0, MAX_STOPS_PER_DAY)
+  }
+
+  return [...orderGroup(urbanCluster), ...orderGroup(remote), ...missing].slice(
+    0,
+    MAX_STOPS_PER_DAY,
+  )
 }
 
 export function uniqueRouteWaypoints(
@@ -176,8 +240,11 @@ export function attachDriveSegments(stops: TripStop[]): TripStop[] {
   })
 }
 
-export function prepareStopsForRoute(stops: TripStop[]): TripStop[] {
-  return attachDriveSegments(optimizeStopOrder(dedupeNearbyStops(stops)))
+export function prepareStopsForRoute(
+  stops: TripStop[],
+  cityCenter?: GeoPoint | null,
+): TripStop[] {
+  return attachDriveSegments(optimizeStopOrder(dedupeNearbyStops(stops), cityCenter))
 }
 
 export function dayAnchor(stops: TripStop[], cityCenter: GeoPoint | null): GeoPoint | null {

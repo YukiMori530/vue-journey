@@ -5,6 +5,8 @@ import {
   isCoordNearCluster,
   isCoordPlausibleForStop,
   isCoordTooCloseToAny,
+  isNonAttractionPoi,
+  MIN_POI_NAME_SCORE,
   poiNameScore,
   shouldBindToCluster,
   type GeoPoint,
@@ -63,10 +65,12 @@ function pickBestJsPoi(
   const bindCluster = shouldBindToCluster(keyword)
   const candidates = pois
     .filter((poi) => poi.location)
+    .filter((poi) => !isNonAttractionPoi(poi.name))
     .map((poi) => ({
       point: { lng: poi.location.lng, lat: poi.location.lat },
       score: poiNameScore(poi.name, keyword),
     }))
+    .filter(({ score }) => score >= MIN_POI_NAME_SCORE)
     .filter(({ point }) => !isCoordTooCloseToAny(point, clusterAnchors))
     .filter(({ point }) =>
       anchor ? isCoordPlausibleForStop(point, anchor, keyword) : true,

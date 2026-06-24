@@ -186,7 +186,7 @@ onUnmounted(() => {
     </div>
 
     <div v-if="!resolvedDays.length" class="map-empty">
-      <p>还没有地点，先用 AI 生成或从小红书导入行程</p>
+      <p>还没有地点，先用 AI 生成或从攻略导入行程</p>
     </div>
 
     <template v-else>

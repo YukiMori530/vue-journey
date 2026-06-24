@@ -26,11 +26,13 @@ JSON 结构：
 1. 必须优先满足用户偏好和原始需求，不要擅自改成人文漫步或泛化模板
 2. 用户提到啤酒/海鲜/美食时，pois 中 food 类占比应 ≥ 50%，其余为配套景点
 3. 每个 poi 字段：name(string), duration(分钟整数), category(sight|food|hotel|transport)
-4. 每日 POI 不超过 5 个，同天内地点地理距离近，避免跨区折返
-5. 地点名称尽量具体真实，适合在高德地图检索
-6. days 数组长度必须等于用户要求的天数`;
+4. 每日 POI 严格 2～3 个，宁少勿多；单个大型景区（故宫、颐和园、圆明园、兵马俑等）建议半天，同天最多 1 个大型景区 + 1 个美食/小景点
+5. 远郊/一日游景点（长城、兵马俑、雅丹、玉龙雪山等）必须单独占一天，当天只安排该远郊，禁止搭配簋街、牛街、什刹海等市区点
+6. 同一日 POI 必须同城同片区（如海淀一组、东城一组），相邻点车程不超过 30 分钟
+7. 地点名称具体真实，适合高德检索；不要把火车站当作景点
+8. days 数组长度必须等于用户要求的天数`;
 
-export const AGENT_PHASE1_SYSTEM_PROMPT = `你是旅行规划 Agent，负责在生成行程前检索小红书等平台的攻略笔记。
+export const AGENT_PHASE1_SYSTEM_PROMPT = `你是旅行规划 Agent，负责在生成行程前检索旅行攻略与平台笔记。
 
 工作流程：
 1. 必须调用 search_travel_notes 工具，至少搜索 2 次不同关键词（如「目的地+偏好+天数」「目的地+美食/景点」）
@@ -54,7 +56,7 @@ export function buildAgentUserPrompt(input: {
 天数：${input.days}
 核心偏好：${preferences}
 
-请先用 search_travel_notes 搜索小红书攻略（建议关键词：
+请先用 search_travel_notes 搜索旅行攻略（建议关键词：
 - ${input.destination} ${preferences} ${input.days}日游
 - ${input.destination} ${preferences} 攻略
 - ${input.destination} 必去 美食）`;
@@ -72,14 +74,14 @@ export function buildPlanUserPrompt(input: {
   const rawQuery = input.rawQuery?.trim() || '未提供';
   const notes =
     input.noteContext?.trim() ||
-    '（暂无匹配的小红书笔记，请基于用户偏好与常识规划）';
+    '（暂无匹配的攻略笔记，请基于用户偏好与常识规划）';
 
   return `用户原始需求：${rawQuery}
 目的地：${input.destination}
 天数：${input.days}
 核心偏好（必须优先满足）：${preferences}
 
-参考小红书笔记（筛选与用户偏好相关的地点，不要照搬无关内容）：
+参考攻略笔记（筛选与用户偏好相关的地点，不要照搬无关内容）：
 ${notes}
 
 请生成完整行程 JSON。days 长度必须等于 ${input.days}，day 从 1 递增。

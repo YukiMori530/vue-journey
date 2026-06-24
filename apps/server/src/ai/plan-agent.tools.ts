@@ -9,7 +9,7 @@ export const PLAN_AGENT_TOOLS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
     function: {
       name: 'search_travel_notes',
       description:
-        '搜索小红书等平台的旅行攻略笔记。规划前必须多次调用，用不同关键词检索目的地、偏好、美食、景点相关笔记。',
+        '搜索旅行攻略与平台笔记。规划前必须多次调用，用不同关键词检索目的地、偏好、美食、景点相关内容。',
       parameters: {
         type: 'object',
         properties: {
@@ -34,8 +34,11 @@ export class PlanAgentTools {
     this.seenNoteIds.clear();
   }
 
-  searchTravelNotes(query: string, destination?: string): SearchNotesResult {
-    const notes = this.notesService.search(query, {
+  async searchTravelNotes(
+    query: string,
+    destination?: string,
+  ): Promise<SearchNotesResult> {
+    const notes = await this.notesService.search(query, {
       limit: 5,
       destination,
     });
@@ -48,11 +51,15 @@ export class PlanAgentTools {
       return true;
     });
 
-    const picked = fresh.length ? fresh : notes.slice(0, 3);
+    const picked = fresh.length ? fresh : [];
+    const duplicate = !fresh.length && notes.length > 0;
 
     return {
       query,
       count: picked.length,
+      freshCount: picked.length,
+      duplicate,
+      matchedTitles: notes.map((note) => note.title),
       titles: picked.map((note) => note.title),
       notes: picked.map((note) => ({
         id: note.id,

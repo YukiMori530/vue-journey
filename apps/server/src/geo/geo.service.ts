@@ -4,17 +4,23 @@ import type { DayPlan, TripStop } from '../trips/trip.types';
 import {
   buildPlaceQueries,
   distanceKm,
-  fallbackCoordsNear,
   isCoordNearCluster,
   isCoordPlausibleForStop,
   isRemoteExcursion,
   isCoordTooCloseToAny,
+  isNonAttractionPoi,
+  isNonAttractionStop,
+  isWithinDestination,
   lookupKnownLandmark,
-  pickClosestPoint,
+  MIN_POI_NAME_SCORE,
+  normalizeCityName,
   poiNameScore,
+  shouldAddToUrbanCluster,
   shouldBindToCluster,
   type GeoPoint,
 } from './geo.utils';
+import { orderStopsByZones } from './route-order';
+import { trimDayPlanStops } from './day-plan-trim';
 
 export type { GeoPoint };
 
@@ -156,6 +162,7 @@ export class GeoService {
 
     const pool = inCity.length ? inCity : points;
     const candidates = pool
+      .filter(({ poi }) => !isNonAttractionPoi(poi.name))
       .filter(({ point }) => !isCoordTooCloseToAny(point, clusterAnchors))
       .filter(({ point }) =>
         anchor ? isCoordPlausibleForStop(point, anchor, keyword) : true,
@@ -168,7 +175,8 @@ export class GeoService {
       .map(({ point, poi }) => ({
         point,
         score: poiNameScore(poi.name, keyword),
-      }));
+      }))
+      .filter(({ score }) => score >= MIN_POI_NAME_SCORE);
 
     if (!candidates.length) {
       return null;
@@ -210,7 +218,7 @@ export class GeoService {
       return null;
     }
 
-    const cityName = city.replace(/(市|县|区)$/, '') || city;
+    const cityName = normalizeCityName(city) || city;
 
     for (const keywords of buildPlaceQueries(keyword, city)) {
       const url = new URL('https://restapi.amap.com/v3/place/text');
@@ -250,94 +258,48 @@ export class GeoService {
     destination: string,
     stopIndex: number,
     cityCenter: GeoPoint | null,
-    clusterAnchors: GeoPoint[],
+    urbanClusterAnchors: GeoPoint[],
   ): Promise<GeoPoint | null> {
-    const city = destination.replace(/(市|县|区)$/, '') || destination;
-    const remote = isRemoteExcursion(name);
-    const anchor = remote
-      ? cityCenter
-      : clusterAnchors.length
-        ? {
-            lng:
-              clusterAnchors.reduce((sum, item) => sum + item.lng, 0) /
-              clusterAnchors.length,
-            lat:
-              clusterAnchors.reduce((sum, item) => sum + item.lat, 0) /
-              clusterAnchors.length,
-          }
-        : cityCenter;
+    const city = normalizeCityName(destination) || destination;
 
-    const known = lookupKnownLandmark(name);
-    if (known && isCoordPlausibleForStop(known, cityCenter, name)) {
-      return known;
-    }
-
-    const candidates: GeoPoint[] = [];
-
-    const searched = await this.searchPlace(name, city, anchor, clusterAnchors);
-    if (searched) {
-      candidates.push(searched);
-    }
-
-    for (const query of buildPlaceQueries(name, city).slice(1)) {
-      const retry = await this.searchPlace(query, city, anchor, clusterAnchors);
-      if (retry) {
-        candidates.push(retry);
-      }
-    }
-
-    const geocoded = await this.geocodeAddress(
-      name.includes(city) ? name : `${city}市${name}`,
-      city,
-    );
-    if (geocoded) {
-      candidates.push(geocoded);
-    }
-
-    let valid = anchor
-      ? candidates.filter((point) => isCoordPlausibleForStop(point, anchor, name))
-      : candidates;
-
-    valid = valid.filter((point) => !isCoordTooCloseToAny(point, clusterAnchors));
-
-    if (shouldBindToCluster(name) && clusterAnchors.length) {
-      const clustered = valid.filter((point) =>
-        isCoordNearCluster(point, clusterAnchors),
-      );
-      if (clustered.length) {
-        valid = clustered;
-      }
-    }
-
-    if (anchor && valid.length) {
-      if (remote && cityCenter) {
-        return valid.sort(
-          (a, b) => distanceKm(cityCenter, b) - distanceKm(cityCenter, a),
-        )[0];
-      }
-      return pickClosestPoint(valid, anchor);
-    }
-
-    if (valid.length) {
-      return valid[0];
-    }
-
-    if (known) {
-      return known;
-    }
-
-    if (!anchor || remote) {
+    if (isNonAttractionStop(name)) {
       return null;
     }
 
-    this.logger.warn(`地点坐标回退: ${name} @ ${destination}`);
-    let fallback = fallbackCoordsNear(anchor, stopIndex);
-    let guard = 0;
-    while (isCoordTooCloseToAny(fallback, clusterAnchors) && guard < 6) {
-      guard += 1;
-      fallback = fallbackCoordsNear(anchor, stopIndex + guard);
+    const known = lookupKnownLandmark(name, city);
+    if (known && isWithinDestination(known, cityCenter, name)) {
+      return known;
     }
-    return fallback;
+
+    const remote = isRemoteExcursion(name);
+    const anchor = remote
+      ? cityCenter
+      : urbanClusterAnchors.length
+        ? {
+            lng:
+              urbanClusterAnchors.reduce((sum, item) => sum + item.lng, 0) /
+              urbanClusterAnchors.length,
+            lat:
+              urbanClusterAnchors.reduce((sum, item) => sum + item.lat, 0) /
+              urbanClusterAnchors.length,
+          }
+        : cityCenter;
+
+    const searched = await this.searchPlace(
+      name,
+      city,
+      anchor,
+      urbanClusterAnchors,
+    );
+    if (
+      searched &&
+      isWithinDestination(searched, cityCenter, name) &&
+      isCoordPlausibleForStop(searched, anchor, name)
+    ) {
+      return searched;
+    }
+
+    return null;
   }
 
   private async resolveDayPlaces(
@@ -346,7 +308,7 @@ export class GeoService {
     cityCenter: GeoPoint | null,
   ): Promise<TripStop[]> {
     const resolved: TripStop[] = [];
-    const clusterAnchors: GeoPoint[] = [];
+    const urbanClusterAnchors: GeoPoint[] = [];
 
     for (let stopIndex = 0; stopIndex < places.length; stopIndex += 1) {
       const raw = places[stopIndex];
@@ -355,16 +317,18 @@ export class GeoService {
       if (hasCoords(raw)) {
         const stop = raw as TripStop;
         const point = { lng: stop.lng!, lat: stop.lat! };
-        const anchor = cityCenter ?? (clusterAnchors[0] ?? null);
+        const anchor = cityCenter ?? (urbanClusterAnchors[0] ?? null);
         if (
           isCoordPlausibleForStop(point, anchor, name) &&
           (shouldBindToCluster(name)
-            ? isCoordNearCluster(point, clusterAnchors)
+            ? isCoordNearCluster(point, urbanClusterAnchors)
             : true) &&
-          !isCoordTooCloseToAny(point, clusterAnchors)
+          !isCoordTooCloseToAny(point, urbanClusterAnchors)
         ) {
           resolved.push(stop);
-          clusterAnchors.push(point);
+          if (shouldAddToUrbanCluster(name)) {
+            urbanClusterAnchors.push(point);
+          }
           continue;
         }
       }
@@ -374,17 +338,20 @@ export class GeoService {
         destination,
         stopIndex,
         cityCenter,
-        clusterAnchors,
+        urbanClusterAnchors,
       );
 
       const stop = toStop(raw, coords ?? undefined);
       resolved.push(stop);
-      if (coords) {
-        clusterAnchors.push(coords);
+      if (coords && shouldAddToUrbanCluster(name)) {
+        urbanClusterAnchors.push(coords);
       }
     }
 
-    return resolved;
+    return trimDayPlanStops(
+      orderStopsByZones(resolved, cityCenter),
+      cityCenter,
+    );
   }
 
   async enrichDayPlans(
@@ -415,7 +382,7 @@ export class GeoService {
     }
 
     const cityCenter = await this.geocodeCity(destination);
-    const clusterAnchors: GeoPoint[] = [];
+    const urbanClusterAnchors: GeoPoint[] = [];
     const results: Array<{ name: string; lng?: number; lat?: number }> = [];
 
     for (let index = 0; index < names.length; index += 1) {
@@ -425,10 +392,10 @@ export class GeoService {
         destination,
         index,
         cityCenter,
-        clusterAnchors,
+        urbanClusterAnchors,
       );
-      if (coords) {
-        clusterAnchors.push(coords);
+      if (coords && shouldAddToUrbanCluster(name)) {
+        urbanClusterAnchors.push(coords);
       }
       results.push(coords ? { name, ...coords } : { name });
     }

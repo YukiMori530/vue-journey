@@ -4,6 +4,8 @@ import type { ResolvedDayStops } from '../composables/use-resolved-trip-stops'
 import { buildRouteSegments } from '../utils/amap-route'
 import { getDayColor } from '../utils/day-route-colors'
 import { loadAMap } from '../utils/amap'
+import { defaultCityCenter } from '../utils/geo-distance'
+import { geocodeCityCenter } from '../utils/trip-geocode'
 import {
   buildOverviewDayBadgeHtml,
   buildRoutePolylineOptions,
@@ -58,9 +60,21 @@ async function renderMap() {
       const firstStop = visibleDays.value[0]?.stops.find(
         (stop) => stop.lng != null && stop.lat != null,
       )
+      let center: [number, number]
+      if (firstStop) {
+        center = [firstStop.lng!, firstStop.lat!]
+      } else if (props.destination) {
+        const geocoded = await geocodeCityCenter(props.destination)
+        const fallback = defaultCityCenter(props.destination)
+        center = geocoded
+          ? [geocoded.lng, geocoded.lat]
+          : [fallback.lng, fallback.lat]
+      } else {
+        center = [116.397, 39.903]
+      }
       mapInstance.value = new AMap.Map(mapContainer.value, {
         zoom: 12,
-        center: firstStop ? [firstStop.lng!, firstStop.lat!] : [120.38, 36.07],
+        center,
         viewMode: '2D',
         mapStyle: TRIP_MAP_STYLE,
       })

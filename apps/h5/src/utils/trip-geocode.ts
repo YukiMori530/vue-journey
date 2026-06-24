@@ -1,18 +1,20 @@
 import * as geoApi from '../api/geo'
 import {
-  fallbackCoords,
   geocodeCityByJs,
   searchPlaceByJs,
   type GeoPoint,
 } from './amap-geocode'
 import {
   buildPlaceQueries,
-  fallbackCoordsNear,
   isCoordNearCluster,
   isCoordPlausibleForStop,
-  isRemoteExcursion,
   isCoordTooCloseToAny,
+  isNonAttractionStop,
+  isRemoteExcursion,
+  isWithinDestination,
   lookupKnownLandmark,
+  normalizeCityName,
+  shouldAddToUrbanCluster,
   shouldBindToCluster,
 } from './geo-distance'
 import type { TripStop } from '../types/trip'
@@ -23,18 +25,29 @@ import {
 } from './route-order'
 
 let backendGeoEnabled: boolean | null = null
+let backendGeoCheckedAt = 0
+const GEO_STATUS_TTL_MS = 12_000
 
 async function isBackendGeoEnabled() {
-  if (backendGeoEnabled != null) {
-    return backendGeoEnabled
+  const now = Date.now()
+  if (
+    backendGeoEnabled === true &&
+    now - backendGeoCheckedAt < GEO_STATUS_TTL_MS
+  ) {
+    return true
   }
+
   try {
     const status = await geoApi.fetchGeoStatus()
-    backendGeoEnabled = status.enabled
+    backendGeoCheckedAt = now
+    backendGeoEnabled = status.enabled ? true : null
+    return status.enabled
   } catch {
-    backendGeoEnabled = false
+    // 后端热重载时会短暂 502，不要永久禁用后端 geocode
+    backendGeoCheckedAt = now
+    backendGeoEnabled = null
+    return false
   }
-  return backendGeoEnabled
 }
 
 export async function geocodeCityCenter(destination: string): Promise<GeoPoint | null> {
@@ -57,32 +70,39 @@ async function resolveSingleStop(
   destination: string,
   stopIndex: number,
   cityCenter: GeoPoint | null,
-  clusterAnchors: GeoPoint[],
+  urbanClusterAnchors: GeoPoint[],
   coordMap: Map<string, GeoPoint>,
 ): Promise<TripStop> {
+  const city = normalizeCityName(destination) || destination
+
+  if (isNonAttractionStop(stop.name)) {
+    return stop
+  }
+
+  const known = lookupKnownLandmark(stop.name, city)
+  if (known && isWithinDestination(known, cityCenter, stop.name)) {
+    return { ...stop, ...known }
+  }
+
   const remote = isRemoteExcursion(stop.name)
   const anchor = remote
     ? cityCenter
-    : clusterAnchors.length
+    : urbanClusterAnchors.length
       ? {
-          lng: clusterAnchors.reduce((sum, item) => sum + item.lng, 0) / clusterAnchors.length,
-          lat: clusterAnchors.reduce((sum, item) => sum + item.lat, 0) / clusterAnchors.length,
+          lng: urbanClusterAnchors.reduce((sum, item) => sum + item.lng, 0) / urbanClusterAnchors.length,
+          lat: urbanClusterAnchors.reduce((sum, item) => sum + item.lat, 0) / urbanClusterAnchors.length,
         }
       : cityCenter
-
-  const known = lookupKnownLandmark(stop.name)
-  if (known && isCoordPlausibleForStop(known, cityCenter, stop.name)) {
-    return { ...stop, ...known }
-  }
 
   if (
     stop.lng != null &&
     stop.lat != null &&
+    isWithinDestination({ lng: stop.lng, lat: stop.lat }, cityCenter, stop.name) &&
     isCoordPlausibleForStop({ lng: stop.lng, lat: stop.lat }, anchor, stop.name) &&
     (shouldBindToCluster(stop.name)
-      ? isCoordNearCluster({ lng: stop.lng, lat: stop.lat }, clusterAnchors)
+      ? isCoordNearCluster({ lng: stop.lng, lat: stop.lat }, urbanClusterAnchors)
       : true) &&
-    !isCoordTooCloseToAny({ lng: stop.lng, lat: stop.lat }, clusterAnchors)
+    !isCoordTooCloseToAny({ lng: stop.lng, lat: stop.lat }, urbanClusterAnchors)
   ) {
     return stop
   }
@@ -90,53 +110,24 @@ async function resolveSingleStop(
   const mapped = coordMap.get(stop.name)
   if (
     mapped &&
+    isWithinDestination(mapped, cityCenter, stop.name) &&
     isCoordPlausibleForStop(mapped, anchor, stop.name) &&
     (shouldBindToCluster(stop.name)
-      ? isCoordNearCluster(mapped, clusterAnchors)
+      ? isCoordNearCluster(mapped, urbanClusterAnchors)
       : true) &&
-    !isCoordTooCloseToAny(mapped, clusterAnchors)
+    !isCoordTooCloseToAny(mapped, urbanClusterAnchors)
   ) {
     return { ...stop, ...mapped }
   }
 
-  const city = destination.replace(/(市|县|区)$/, '') || destination
   let point: GeoPoint | null = null
 
   for (const query of buildPlaceQueries(stop.name, city)) {
-    point = await searchPlaceByJs(query, city, anchor, clusterAnchors)
-    if (point) {
+    point = await searchPlaceByJs(query, city, anchor, urbanClusterAnchors)
+    if (point && isWithinDestination(point, cityCenter, stop.name)) {
       break
     }
-  }
-
-  if (!point && cityCenter) {
-    point = await geocodeCityByJs(
-      stop.name.includes(city) ? stop.name : `${city}市${stop.name}`,
-    )
-    if (
-      point &&
-      (!isCoordPlausibleForStop(point, anchor, stop.name) ||
-        (shouldBindToCluster(stop.name) &&
-          !isCoordNearCluster(point, clusterAnchors)))
-    ) {
-      point = null
-    }
-  }
-
-  if (!point && known) {
-    point = known
-  }
-
-  if (!point && anchor && !remote) {
-    let fallback = fallbackCoordsNear(anchor, stopIndex)
-    let guard = 0
-    while (isCoordTooCloseToAny(fallback, clusterAnchors) && guard < 6) {
-      guard += 1
-      fallback = fallbackCoordsNear(anchor, stopIndex + guard)
-    }
-    point = fallback
-  } else if (!point && cityCenter) {
-    point = fallbackCoords(cityCenter, 0, stopIndex)
+    point = null
   }
 
   return point ? { ...stop, ...point } : stop
@@ -149,7 +140,7 @@ export async function resolveDayStops(
 ): Promise<TripStop[]> {
   const cityCenter = await geocodeCityCenter(destination)
   const coordMap = new Map<string, GeoPoint>()
-  const clusterAnchors: GeoPoint[] = []
+  const urbanClusterAnchors: GeoPoint[] = []
 
   const needsLookup = stops.some(
     (stop) =>
@@ -157,7 +148,7 @@ export async function resolveDayStops(
       stop.lat == null ||
       !isCoordPlausibleForStop({ lng: stop.lng!, lat: stop.lat! }, cityCenter, stop.name) ||
       (shouldBindToCluster(stop.name) &&
-        !isCoordNearCluster({ lng: stop.lng!, lat: stop.lat! }, clusterAnchors)),
+        !isCoordNearCluster({ lng: stop.lng!, lat: stop.lat! }, urbanClusterAnchors)),
   )
 
   if (needsLookup && (await isBackendGeoEnabled())) {
@@ -169,7 +160,10 @@ export async function resolveDayStops(
       batch.forEach((item) => {
         if (item.lng != null && item.lat != null) {
           const point = { lng: item.lng, lat: item.lat }
-          if (isCoordPlausibleForStop(point, cityCenter, item.name)) {
+          if (
+            isWithinDestination(point, cityCenter, item.name) &&
+            isCoordPlausibleForStop(point, cityCenter, item.name)
+          ) {
             coordMap.set(item.name, point)
           }
         }
@@ -186,17 +180,17 @@ export async function resolveDayStops(
       destination,
       index,
       cityCenter,
-      clusterAnchors,
+      urbanClusterAnchors,
       coordMap,
     )
     resolved.push(stop)
-    if (stop.lng != null && stop.lat != null) {
-      clusterAnchors.push({ lng: stop.lng, lat: stop.lat })
+    if (stop.lng != null && stop.lat != null && shouldAddToUrbanCluster(stops[index].name)) {
+      urbanClusterAnchors.push({ lng: stop.lng, lat: stop.lat })
     }
   }
 
   const cleaned = dedupeNearbyStops(resolved)
-  const ordered = optimizeStopOrder(cleaned)
+  const ordered = optimizeStopOrder(cleaned, cityCenter)
   return attachDriveSegments(ordered)
 }
 

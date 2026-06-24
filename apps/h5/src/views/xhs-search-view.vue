@@ -43,7 +43,7 @@ async function importNote(note: XhsNote) {
   importingId.value = note.id
   try {
     const trip = await tripStore.addTripFromText(note.content)
-    showToast('已从小红书笔记导入')
+    showToast('已从攻略导入')
     router.push(`/trip/${trip.id}?day=1`)
   } catch (error) {
     const message = error instanceof ApiError ? error.message : '导入失败'
@@ -60,7 +60,7 @@ async function importNote(note: XhsNote) {
       <button type="button" class="back-btn" aria-label="返回" @click="goBack">
         <van-icon name="arrow-left" size="20" />
       </button>
-      <h1 class="xhs-title">小红书笔记</h1>
+      <h1 class="xhs-title">旅行攻略</h1>
       <span class="header-spacer" />
     </header>
 

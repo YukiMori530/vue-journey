@@ -8,14 +8,14 @@ export class NotesController {
   constructor(private readonly notesService: NotesService) {}
 
   @Get('search')
-  search(@Query('q') query = '') {
-    const data = this.notesService.search(query);
+  async search(@Query('q') query = '') {
+    const data = await this.notesService.search(query);
     return { data, message: 'ok' };
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    const note = this.notesService.findById(id);
+  async findOne(@Param('id') id: string) {
+    const note = await this.notesService.findById(id);
     if (!note) {
       throw new NotFoundException('笔记不存在');
     }

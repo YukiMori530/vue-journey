@@ -81,7 +81,7 @@ async function handleImport() {
           <h2>文本或链接识别</h2>
         </div>
         <p class="card-desc">
-          长按粘贴文本内容/链接进行自动识别。链接解析现已支持：小红书笔记、公众号内容及已公开权限的飞书文档。
+          长按粘贴文本内容/链接进行自动识别。链接解析现已支持：旅行攻略链接、公众号内容及已公开权限的飞书文档。
         </p>
 
         <van-field
@@ -107,9 +107,9 @@ async function handleImport() {
       <section class="import-card import-card--xhs" @click="openXhsSearch">
         <div class="card-head">
           <van-icon name="fire-o" size="18" color="#ff2442" />
-          <h2>搜索小红书笔记</h2>
+          <h2>搜索旅行攻略</h2>
         </div>
-        <p class="card-desc">按目的地搜索精选笔记，一键导入并在地图上查看每日路线</p>
+        <p class="card-desc">按目的地搜索精选攻略，一键导入并在地图上查看每日路线</p>
         <span class="card-link">去搜索 ></span>
       </section>
 

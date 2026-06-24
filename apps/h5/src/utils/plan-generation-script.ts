@@ -53,9 +53,9 @@ export function buildPlanGenerationSteps(
 
   return [
     { kind: 'intro', text: `我来帮你规划${destination}${days}日游！重点围绕「${prefHint}」，先搜索攻略和最新信息。`, delayMs: 0 },
-    { kind: 'search', text: `正在搜索小红书和全网信息：${destination}${prefHint}${days}日游 ${year}`, delayMs: 400 },
-    { kind: 'search', text: `正在搜索小红书和全网信息：${destination}${hints.spots[0]}开放时间门票${year}`, delayMs: 450 },
-    { kind: 'search', text: `正在搜索小红书和全网信息：${destination}旅游注意事项最佳路线`, delayMs: 400 },
+    { kind: 'search', text: `正在搜索旅行攻略：${destination}${prefHint}${days}日游 ${year}`, delayMs: 400 },
+    { kind: 'search', text: `正在搜索旅行攻略：${destination}${hints.spots[0]}开放时间门票${year}`, delayMs: 450 },
+    { kind: 'search', text: `正在搜索旅行攻略：${destination}旅游注意事项最佳路线`, delayMs: 400 },
     { kind: 'location', text: `正在搜索${destination}的地点：必去景点（${hints.spots.slice(0, 3).join('、')}等）`, delayMs: 500 },
     { kind: 'location', text: `正在搜索${destination}的地点：本地美食餐厅（${hints.foods.join('、')}）`, delayMs: 380 },
     { kind: 'location', text: `正在搜索${destination}的地点：夜市与特色街区`, delayMs: 350 },

@@ -11,6 +11,7 @@ import { GeoService } from '../geo/geo.service';
 import { ParseGuideDto } from './dto/parse-guide.dto';
 import { PlanItineraryDto } from './dto/plan-itinerary.dto';
 import { itineraryToCreateTripDto } from './itinerary.mapper';
+import { sanitizeItinerary } from './itinerary-sanitize';
 import { PlanAgentService } from './plan-agent.service';
 import type { PlanAgentLog } from './plan-agent.types';
 
@@ -27,9 +28,10 @@ export class AiController {
 
   private async createTripFromPlan(dto: PlanItineraryDto, userId: number) {
     const logs: PlanAgentLog[] = [];
-    const itinerary = await this.planAgent.planItinerary(dto, (log) => {
+    const rawItinerary = await this.planAgent.planItinerary(dto, (log) => {
       logs.push(log);
     });
+    const itinerary = sanitizeItinerary(rawItinerary);
     const count = await this.prisma.trip.count({ where: { userId } });
     const createDto = itineraryToCreateTripDto(itinerary, dto, count);
     createDto.dayPlans = await this.geoService.enrichDayPlans(
@@ -62,9 +64,10 @@ export class AiController {
     };
 
     try {
-      const itinerary = await this.planAgent.planItinerary(dto, (log) => {
+      const rawItinerary = await this.planAgent.planItinerary(dto, (log) => {
         write({ type: 'log', kind: log.kind, text: log.text });
       });
+      const itinerary = sanitizeItinerary(rawItinerary);
 
       write({ type: 'status', text: '正在定位地点并保存行程…' });
 

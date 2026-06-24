@@ -17,6 +17,10 @@ export type PlanAgentLogHandler = (log: PlanAgentLog) => void;
 export interface SearchNotesResult {
   query: string;
   count: number;
+  freshCount: number;
+  duplicate: boolean;
+  /** 本次检索命中的全部攻略标题（含与上轮重复的） */
+  matchedTitles: string[];
   titles: string[];
   notes: Array<{
     id: string;

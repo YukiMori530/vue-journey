@@ -66,7 +66,7 @@ export class PlanAgentService {
 
     onLog({
       kind: 'intro',
-      text: `我来帮你规划${dto.destination}${dto.days}日游！先搜索小红书攻略和最新信息。`,
+      text: `我来帮你规划${dto.destination}${dto.days}日游！先搜索旅行攻略和最新信息。`,
     });
 
     const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
@@ -106,20 +106,25 @@ export class PlanAgentService {
         const query = args.query?.trim() || dto.destination;
         onLog({
           kind: 'search',
-          text: `正在搜索小红书和全网信息：${query}`,
+          text: `正在搜索旅行攻略：${query}`,
         });
 
-        const result = this.agentTools.searchTravelNotes(query, dto.destination);
+        const result = await this.agentTools.searchTravelNotes(query, dto.destination);
 
-        if (result.count > 0) {
+        if (result.freshCount > 0) {
           onLog({
             kind: 'result',
-            text: `找到 ${result.count} 篇笔记：${result.titles.join('、')}`,
+            text: `找到 ${result.freshCount} 篇攻略：${result.titles.join('、')}`,
+          });
+        } else if (result.duplicate && result.matchedTitles.length) {
+          onLog({
+            kind: 'result',
+            text: `检索「${query}」，关联攻略：${result.matchedTitles.join('、')}`,
           });
         } else {
           onLog({
             kind: 'result',
-            text: `未找到「${query}」的精确匹配，将扩大检索范围`,
+            text: `继续从更多关键词检索「${dto.destination}」相关攻略…`,
           });
         }
 
@@ -140,8 +145,9 @@ export class PlanAgentService {
         ...messages.filter((item) => item.role !== 'system'),
         {
           role: 'user',
-          content: `请根据以上搜索到的小红书笔记和用户偏好，输出完整行程 JSON。
-days 长度必须等于 ${dto.days}。优先采用笔记中出现的真实地点，满足用户偏好（${dto.preferences.join('、') || '当地特色'}）。`,
+          content: `请根据以上搜索到的攻略笔记和用户偏好，输出完整行程 JSON。
+days 长度必须等于 ${dto.days}。优先采用笔记中出现的真实地点，满足用户偏好（${dto.preferences.join('、') || '当地特色'}）。
+远郊景点（长城、兵马俑等）必须单独一天且当天仅 1～2 个远郊 POI；每日总共 2～3 个 POI，同片区安排，禁止八达岭+簋街这类跨城混排。`,
         },
       ];
 
@@ -212,7 +218,7 @@ days 长度必须等于 ${dto.days}。优先采用笔记中出现的真实地点
 
     onLog({
       kind: 'intro',
-      text: `我来帮你规划${dto.destination}${dto.days}日游！先搜索小红书攻略。`,
+      text: `我来帮你规划${dto.destination}${dto.days}日游！先搜索旅行攻略。`,
     });
 
     const queries = [
@@ -221,13 +227,18 @@ days 长度必须等于 ${dto.days}。优先采用笔记中出现的真实地点
     ];
 
     for (const query of queries) {
-      onLog({ kind: 'search', text: `正在搜索小红书和全网信息：${query}` });
+      onLog({ kind: 'search', text: `正在搜索旅行攻略：${query}` });
       await this.delay(350);
-      const result = this.agentTools.searchTravelNotes(query, dto.destination);
-      if (result.count) {
+      const result = await this.agentTools.searchTravelNotes(query, dto.destination);
+      if (result.freshCount > 0) {
         onLog({
           kind: 'result',
-          text: `找到 ${result.count} 篇笔记：${result.titles.join('、')}`,
+          text: `找到 ${result.freshCount} 篇攻略：${result.titles.join('、')}`,
+        });
+      } else if (result.duplicate && result.matchedTitles.length) {
+        onLog({
+          kind: 'result',
+          text: `检索「${query}」，关联攻略：${result.matchedTitles.join('、')}`,
         });
       }
     }

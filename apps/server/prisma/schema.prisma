@@ -32,3 +32,20 @@ model Trip {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }
+
+model TravelGuide {
+  id          String   @id
+  title       String
+  author      String   @default("途绘精选")
+  cover       String
+  destination String
+  days        Int
+  category    String
+  likes       String   @default("1w+")
+  snippet     String
+  content     String   @db.Text
+  keywords    String[]
+
+  @@index([destination])
+  @@index([category])
+}
