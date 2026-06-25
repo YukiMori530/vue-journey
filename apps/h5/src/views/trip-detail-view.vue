@@ -121,6 +121,10 @@ function openChatSheet(draft?: string) {
   showChatSheet.value = true
 }
 
+function clearChatDraft() {
+  chatDraftMessage.value = ''
+}
+
 function openStopDetail(payload: { stop: TripStop; index: number }) {
   selectedStop.value = payload
   showStopDetail.value = true
@@ -176,6 +180,7 @@ function openDeleteDialog() {
 }
 
 function openAdjustSheet() {
+  clearChatDraft()
   openChatSheet()
 }
 

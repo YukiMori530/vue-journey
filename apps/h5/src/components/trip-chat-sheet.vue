@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { nextTick, ref, watch } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import type { Trip } from '../types/trip'
 
 export interface ChatMessage {
@@ -7,6 +7,8 @@ export interface ChatMessage {
   role: 'user' | 'assistant'
   text: string
 }
+
+const DEFAULT_PLACEHOLDER = '例如：第三天想轻松一点，少排景点'
 
 const props = defineProps<{
   trip: Trip
@@ -24,6 +26,14 @@ const input = ref('')
 const messages = ref<ChatMessage[]>([])
 const thinkingSteps = ref<string[]>([])
 const listRef = ref<HTMLElement | null>(null)
+
+const inputPlaceholder = computed(
+  () => props.draftMessage?.trim() || DEFAULT_PLACEHOLDER,
+)
+
+const canSend = computed(
+  () => Boolean(input.value.trim() || props.draftMessage?.trim()) && !props.busy,
+)
 
 const quickPrompts = [
   '每天景点少一点，2～3 个就好',
@@ -50,11 +60,11 @@ function resetChat() {
     },
   ]
   thinkingSteps.value = []
-  input.value = props.draftMessage?.trim() ?? ''
+  input.value = ''
 }
 
 watch(
-  () => [show.value, props.trip.id] as const,
+  () => [show.value, props.trip.id, props.draftMessage] as const,
   ([visible]) => {
     if (visible) {
       resetChat()
@@ -109,7 +119,7 @@ function sendMessage(text?: string) {
   if (props.busy) {
     return
   }
-  const content = (text ?? input.value).trim()
+  const content = (text ?? (input.value.trim() || props.draftMessage?.trim() || '')).trim()
   if (!content) {
     return
   }
@@ -200,14 +210,14 @@ defineExpose({
           v-model="input"
           type="text"
           class="trip-chat__input"
-          placeholder="例如：第三天想轻松一点，少排景点"
+          :placeholder="inputPlaceholder"
           :disabled="busy"
           @keydown.enter.prevent="sendMessage()"
         />
         <button
           type="button"
           class="trip-chat__send"
-          :disabled="!input.trim() || busy"
+          :disabled="!canSend"
           @click="sendMessage()"
         >
           {{ busy ? '调整中' : '发送' }}
@@ -407,7 +417,12 @@ defineExpose({
   border-radius: 999px;
   background: #f2f3f5;
   font-size: 14px;
+  color: #111;
   outline: none;
+}
+
+.trip-chat__input::placeholder {
+  color: #969799;
 }
 
 .trip-chat__input:disabled {
