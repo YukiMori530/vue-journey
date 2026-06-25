@@ -8,6 +8,9 @@ const BASE_TOAST = {
   position: 'middle' as const,
   className: 'app-toast',
   transition: 'van-fade' as const,
+  overlay: false,
+  closeOnClick: false,
+  closeOnClickOverlay: false,
 }
 
 function openAppToast(options: Record<string, unknown>) {

@@ -193,13 +193,12 @@ async function confirmDelete() {
     return
   }
   deleting.value = true
-  const title = trip.value.title
   try {
     await tripStore.removeTrip(trip.value.id)
     showDeleteDialog.value = false
     await router.replace({ path: '/' })
     await nextTick()
-    showAppSuccessToast(`「${title}」已移除`)
+    showAppSuccessToast('删除成功')
   } catch (error) {
     if (error instanceof ApiError) {
       showAppFailToast(error.message)

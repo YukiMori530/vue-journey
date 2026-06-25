@@ -14,49 +14,32 @@ body {
   margin: 0 auto;
 }
 
-@keyframes app-toast-in {
-  from {
-    opacity: 0;
-  }
-
-  to {
-    opacity: 1;
-  }
-}
-
 .app-toast.van-toast {
   display: flex !important;
   flex-direction: row !important;
   flex-wrap: nowrap !important;
   align-items: center !important;
   justify-content: center !important;
-  gap: 10px;
+  gap: 8px;
   width: max-content !important;
-  max-width: min(340px, calc(100vw - 40px));
+  max-width: min(300px, calc(100vw - 48px));
   min-width: 0 !important;
   min-height: 0 !important;
-  padding: 12px 20px !important;
-  border-radius: 18px !important;
+  padding: 12px 18px !important;
+  border-radius: 12px !important;
   background: rgb(255 255 255 / 96%) !important;
-  border: 1px solid rgb(124 92 191 / 12%);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
-  box-shadow:
-    0 16px 48px rgb(15 23 42 / 12%),
-    0 4px 12px rgb(15 23 42 / 6%),
-    inset 0 1px 0 rgb(255 255 255 / 80%);
-  color: #1a1a1a !important;
+  border: none !important;
+  box-shadow: 0 8px 24px rgb(15 23 42 / 12%) !important;
+  color: #323233 !important;
   font-size: 14px !important;
-  font-weight: 600;
-  line-height: 1.4;
-  white-space: nowrap !important;
-  word-break: keep-all !important;
+  font-weight: 500;
+  line-height: 1.45;
   text-align: center;
-  pointer-events: none;
-}
-
-.app-toast.van-toast.van-fade-enter-active {
-  animation: app-toast-in 0.28s ease both;
+  overflow: hidden !important;
+  transition: opacity 0.2s ease !important;
+  pointer-events: none !important;
+  user-select: none;
+  cursor: default;
 }
 
 .app-toast.van-toast.van-popup--center {
@@ -69,62 +52,32 @@ body {
 
 .app-toast .van-toast__icon {
   flex: 0 0 auto;
-  display: flex !important;
-  align-items: center;
-  justify-content: center;
-  width: 28px !important;
-  height: 28px !important;
   margin: 0 !important;
-  font-size: 15px !important;
+  font-size: 18px !important;
   line-height: 1 !important;
-  border-radius: 50%;
 }
 
 .app-toast .van-toast__text {
-  flex: 0 1 auto;
+  flex: 1 1 auto;
   margin: 0 !important;
   padding: 0 !important;
-  max-width: none;
   text-align: center;
-  line-height: 1.4;
-  font-weight: 600;
-  white-space: nowrap;
-}
-
-.app-toast--success {
-  border-color: rgb(124 92 191 / 18%);
-  background: linear-gradient(
-    135deg,
-    rgb(255 255 255 / 98%) 0%,
-    rgb(248 244 255 / 98%) 100%
-  ) !important;
+  line-height: 1.45;
+  font-weight: 500;
+  white-space: normal;
+  word-break: break-word;
 }
 
 .app-toast--success .van-toast__icon {
-  background: linear-gradient(135deg, #9b7fd4, #7c5cbf);
-  color: #fff !important;
-  box-shadow: 0 4px 12px rgb(124 92 191 / 35%);
-}
-
-.app-toast--fail {
-  border-color: rgb(238 10 36 / 14%);
-  background: linear-gradient(
-    135deg,
-    rgb(255 255 255 / 98%) 0%,
-    rgb(255 247 248 / 98%) 100%
-  ) !important;
+  color: #07c160 !important;
 }
 
 .app-toast--fail .van-toast__icon {
-  background: linear-gradient(135deg, #ff6b6b, #ee0a24);
-  color: #fff !important;
-  box-shadow: 0 4px 12px rgb(238 10 36 / 28%);
+  color: #ee0a24 !important;
 }
 
 .app-toast--info .van-toast__icon {
-  background: linear-gradient(135deg, #5cadff, #1989fa);
-  color: #fff !important;
-  box-shadow: 0 4px 12px rgb(25 137 250 / 28%);
+  color: #1989fa !important;
 }
 
 .app-toast--loading {
