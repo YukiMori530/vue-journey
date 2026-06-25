@@ -1,4 +1,4 @@
-import { distanceKm, isRemoteExcursion, isRemoteStopPoint, primaryPlaceName, type GeoPoint } from './geo-distance'
+import { distanceKm, isRemoteStopPoint, primaryPlaceName, type GeoPoint } from './geo-distance'
 import type { TripStop } from '../types/trip'
 
 const MIN_WAYPOINT_KM = 0.2

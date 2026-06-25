@@ -151,9 +151,9 @@ async function renderMap() {
     mapMarkers.value = markers
     mapPolylines.value = polylines
 
-    if (markers.length) {
+    if (markers.length && mapInstance.value) {
       mapInstance.value.setFitView(markers, false, [56, 56, 56, 56])
-    } else if (props.destination) {
+    } else if (props.destination && mapInstance.value) {
       const geocoded = await geocodeCityCenter(props.destination)
       const fallback = defaultCityCenter(props.destination)
       const center = geocoded ?? fallback

@@ -1,5 +1,5 @@
 import type { Trip } from '../types/trip'
-import { FALLBACK_COVER, mergeCoverCandidates } from './cover-images'
+import { mergeCoverCandidates } from './cover-images'
 
 /** 按目的地匹配本地封面（不依赖外网 Unsplash） */
 export const DESTINATION_COVERS: Record<string, string> = {

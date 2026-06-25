@@ -15,7 +15,6 @@ import {
   isWithinDestination,
   isWideAreaDestination,
   lookupKnownLandmark,
-  normalizeCityName,
   resolveStopGeoContext,
   shouldAddToUrbanCluster,
   shouldBindToCluster,
@@ -84,7 +83,7 @@ export async function geocodeCityCenter(destination: string): Promise<GeoPoint |
 async function resolveSingleStop(
   stop: TripStop,
   destination: string,
-  stopIndex: number,
+  _stopIndex: number,
   cityCenter: GeoPoint | null,
   urbanClusterAnchors: GeoPoint[],
   clusterCity: string | null,
@@ -172,13 +171,11 @@ function coordMapPlaceholder(
   if (!mapped) {
     return null
   }
-  const stopCity = inferStopCity(stop.name, destination)
-  const { center: stopCenter } = resolveStopGeoContext(
+  const anchor = resolveStopGeoContext(
     stop.name,
     destination,
     cityCenter,
-  )
-  const anchor = stopCenter
+  ).center
   if (
     isWithinDestination(mapped, cityCenter, stop.name, destination) &&
     isCoordPlausibleForStop(mapped, anchor, stop.name)
@@ -191,7 +188,7 @@ function coordMapPlaceholder(
 export async function resolveDayStops(
   stops: TripStop[],
   destination: string,
-  dayIndex: number,
+  _dayIndex: number,
 ): Promise<TripStop[]> {
   const cityCenter = await geocodeCityCenter(destination)
   batchCoordCache.clear()

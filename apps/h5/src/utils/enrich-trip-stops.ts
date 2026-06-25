@@ -16,7 +16,7 @@ export function getDayTheme(day: number, destination: string): string {
   return `DAY ${day} ${destination}${theme}`
 }
 
-export function enrichStop(stop: TripStop, index: number, destination: string): TripStop {
+export function enrichStop(stop: TripStop, index: number, _destination: string): TripStop {
   const startHour = 9 + index * 2
   const endHour = startHour + 1
   const endMin = index % 2 === 0 ? 30 : 0
