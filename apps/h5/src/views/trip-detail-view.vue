@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { showToast } from 'vant'
 import ConfirmDialog from '../components/confirm-dialog.vue'
@@ -15,7 +15,7 @@ import { useProfileStore } from '../stores/profile'
 import { enrichDayPlan } from '../utils/enrich-trip-stops'
 import { formatStopDisplayName } from '../utils/display-stop-name'
 import { pickRevisionFocusDay } from '../utils/pick-revision-focus-day'
-import { showAppFailToast, showAppSuccessToast } from '../utils/app-toast'
+import { showAppFailToast, showAppSuccessToast, queueAppSuccessToast } from '../utils/app-toast'
 import { ApiError } from '../api/client'
 import type { TripStop } from '../types/trip'
 
@@ -196,9 +196,8 @@ async function confirmDelete() {
   try {
     await tripStore.removeTrip(trip.value.id)
     showDeleteDialog.value = false
+    queueAppSuccessToast('删除成功')
     await router.replace({ path: '/' })
-    await nextTick()
-    showAppSuccessToast('删除成功')
   } catch (error) {
     if (error instanceof ApiError) {
       showAppFailToast(error.message)

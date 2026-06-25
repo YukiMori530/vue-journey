@@ -30,6 +30,110 @@ const ISLAND_TO_REGION: Record<string, string> = {
   鼓浪屿: '厦门',
 };
 
+/** 中文/阿拉伯数字 + 天/日游，如「三日游」「3天」「两天行程」 */
+const DAY_TRIP_RE =
+  /(?:\d+|[一二三四五六七八九十百千万两]+)\s*[天日](?:游|行程|之旅)?/g;
+
+/** 已知城市/目的地，长名称优先匹配 */
+const KNOWN_CITIES = [
+  '香格里拉',
+  '西双版纳',
+  '长白山',
+  '青海湖',
+  '千岛湖',
+  '秦皇岛',
+  '石家庄',
+  '张家口',
+  '景德镇',
+  '张家界',
+  '哈尔滨',
+  '平潭岛',
+  '武夷山',
+  '峨眉山',
+  '九寨沟',
+  '普陀山',
+  '武当山',
+  '连云港',
+  '平潭',
+  '福州',
+  '黄山',
+  '泰山',
+  '乐山',
+  '贵阳',
+  '拉萨',
+  '承德',
+  '洛阳',
+  '扬州',
+  '无锡',
+  '宁波',
+  '绍兴',
+  '乌镇',
+  '舟山',
+  '威海',
+  '济南',
+  '张掖',
+  '华山',
+  '恩施',
+  '宜昌',
+  '婺源',
+  '庐山',
+  '腾冲',
+  '北海',
+  '潮州',
+  '珠海',
+  '泉州',
+  '成都',
+  '烟台',
+  '北京',
+  '上海',
+  '海南',
+  '杭州',
+  '西安',
+  '重庆',
+  '厦门',
+  '大理',
+  '丽江',
+  '青岛',
+  '苏州',
+  '南京',
+  '广州',
+  '深圳',
+  '武汉',
+  '长沙',
+  '三亚',
+  '三明',
+  '南昌',
+  '敦煌',
+  '保定',
+  '唐山',
+  '桂林',
+  '天津',
+  '昆明',
+  '新干',
+  '吉安',
+  '武隆',
+];
+
+function normalizeCityToken(name: string): string {
+  const trimmed = name.trim();
+  if (ISLAND_TO_REGION[trimmed]) {
+    return ISLAND_TO_REGION[trimmed];
+  }
+  if (/平潭岛/.test(trimmed)) {
+    return '平潭';
+  }
+  return trimmed.replace(/(市|县|区|省)$/, '').trim();
+}
+
+function extractKnownCity(text: string): string | null {
+  for (const city of KNOWN_CITIES) {
+    if (text.includes(city)) {
+      return normalizeCityToken(city);
+    }
+  }
+  return null;
+}
+
 /** 从用户输入/规划请求中归一化目的地，供攻略检索与 geocode 使用 */
 export function normalizeSearchDestination(raw?: string): string {
   if (!raw?.trim()) {
@@ -40,7 +144,7 @@ export function normalizeSearchDestination(raw?: string): string {
 
   text = text
     .replace(/^(?:帮我|请帮我|帮忙|我想|我要)?(?:规划|制定|安排|去|到)/, '')
-    .replace(/\d+\s*[天日](?:游|行程|之旅)?/g, ' ')
+    .replace(DAY_TRIP_RE, ' ')
     .replace(/(?:的)?(?:旅行|旅游|自由行)?(?:行程|路线|计划|攻略)/g, ' ')
     .replace(/[，,。！!？?\s]+/g, ' ')
     .trim();
@@ -49,6 +153,11 @@ export function normalizeSearchDestination(raw?: string): string {
   if (islandMatch) {
     const island = islandMatch[1];
     return ISLAND_TO_REGION[island] ?? island.replace(/岛$/, '') ?? island;
+  }
+
+  const knownCity = extractKnownCity(text);
+  if (knownCity) {
+    return knownCity;
   }
 
   const cleaned = text.replace(/(市|县|区|省)$/, '').trim();
@@ -86,5 +195,17 @@ export function noteMatchesDestination(
     ...note.keywords,
   ].join(' ');
 
-  return aliases.some((alias) => alias.length >= 2 && haystack.includes(alias));
+  return aliases.some((alias) => {
+    if (alias.length < 2) {
+      return false;
+    }
+    if (haystack.includes(alias)) {
+      return true;
+    }
+    // 「北京三日游」应匹配 destination=北京 的攻略
+    return (
+      note.destination.length >= 2 &&
+      alias.includes(note.destination)
+    );
+  });
 }

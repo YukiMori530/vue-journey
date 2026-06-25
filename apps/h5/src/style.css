@@ -36,7 +36,6 @@ body {
   line-height: 1.45;
   text-align: center;
   overflow: hidden !important;
-  transition: opacity 0.2s ease !important;
   pointer-events: none !important;
   user-select: none;
   cursor: default;

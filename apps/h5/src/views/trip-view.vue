@@ -6,7 +6,7 @@ import AppHeader from '../components/app-header.vue'
 import { useTripStore } from '../stores/trip'
 import { useAuthStore } from '../stores/auth'
 import { ApiError } from '../api/client'
-import { showAppFailToast } from '../utils/app-toast'
+import { showAppFailToast, flushPendingAppToast } from '../utils/app-toast'
 
 type TripFilter = 'all' | 'planned' | 'empty' | 'recent'
 
@@ -50,6 +50,7 @@ const filteredTrips = computed(() => {
 })
 
 onMounted(async () => {
+  flushPendingAppToast()
   try {
     await tripStore.fetchTrips()
   } catch (error) {

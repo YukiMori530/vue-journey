@@ -12,6 +12,9 @@ const CITY_PATTERN =
 const PLAN_PREFIX_RE =
   /^(?:帮我|请帮我|帮忙|我想|我要)?(?:规划|制定|安排|去|到)/
 
+const DAY_TRIP_RE =
+  /(?:\d+|[一二三四五六七八九十百千万两]+)\s*[天日](?:游|行程|之旅)?/g
+
 const ISLAND_TO_REGION: Record<string, string> = {
   平潭岛: '平潭',
   嵛山岛: '福鼎',
@@ -73,7 +76,7 @@ function extractPreferences(text: string, destination: string): string[] {
   })
 
   let remain = text
-    .replace(/\d+\s*[天日](?:游|行程)?/g, '')
+    .replace(DAY_TRIP_RE, '')
     .replace(new RegExp(destination, 'g'), '')
     .replace(/平潭岛|平潭/g, '')
     .replace(/帮我规划|规划|的行程|三日游|二日游|一日游|游/g, '')

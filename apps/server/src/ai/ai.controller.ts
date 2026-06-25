@@ -29,9 +29,9 @@ type ReviseLogHandler = (kind: PlanAgentLogKind, text: string) => void;
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 function normalizePlanDto(dto: PlanItineraryDto): PlanItineraryDto {
-  const fromRaw = dto.rawQuery ? normalizeSearchDestination(dto.rawQuery) : '';
   const fromDest = normalizeSearchDestination(dto.destination);
-  const destination = fromRaw || fromDest || dto.destination.trim();
+  const fromRaw = dto.rawQuery ? normalizeSearchDestination(dto.rawQuery) : '';
+  const destination = fromDest || fromRaw || dto.destination.trim();
   return { ...dto, destination };
 }
 

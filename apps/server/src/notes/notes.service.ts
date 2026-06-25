@@ -137,6 +137,10 @@ function rankNotes(
     return ranked.slice(0, limit).map(({ note }) => note);
   }
 
+  if (destination && pool.length) {
+    return pool.slice(0, limit);
+  }
+
   return pool
     .filter(
       (note) =>
