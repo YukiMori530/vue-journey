@@ -7,6 +7,8 @@ import { fetchCityGuides, type XhsNote } from '../api/notes'
 import { extractGuideCoverPlace } from '../utils/guide-cover'
 import { ApiError } from '../api/client'
 import { useTripStore } from '../stores/trip'
+import { useAuthStore } from '../stores/auth'
+import { formatActionError } from '../utils/format-action-error'
 import {
   closeAppToast,
   showAppFailToast,
@@ -17,6 +19,7 @@ import {
 const route = useRoute()
 const router = useRouter()
 const tripStore = useTripStore()
+const authStore = useAuthStore()
 
 const cityId = computed(() => String(route.params.cityId ?? ''))
 const exploreCity = computed(() => getCityById(cityId.value))
@@ -72,6 +75,11 @@ async function importGuide(note: XhsNote) {
   if (importingId.value) {
     return
   }
+  if (!authStore.isLoggedIn) {
+    showAppFailToast('请先登录后再导入行程')
+    router.push({ path: '/login', query: { redirect: route.fullPath } })
+    return
+  }
   importingId.value = note.id
   showAppLoadingToast('正在导入攻略…')
   try {
@@ -81,8 +89,7 @@ async function importGuide(note: XhsNote) {
     await router.push(`/trip/${trip.id}?day=1`)
   } catch (error) {
     closeAppToast()
-    const message = error instanceof ApiError ? error.message : '导入失败，请稍后再试'
-    showAppFailToast(message)
+    showAppFailToast(formatActionError(error, '导入失败，请稍后再试'))
   } finally {
     importingId.value = ''
   }

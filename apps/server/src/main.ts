@@ -7,8 +7,11 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
   app.setGlobalPrefix('api');
+  const corsOrigins = process.env.CORS_ORIGINS?.split(',')
+    .map((item) => item.trim())
+    .filter(Boolean) ?? ['http://localhost:5173', 'http://127.0.0.1:5173'];
   app.enableCors({
-    origin: ['http://localhost:5173', 'http://127.0.0.1:5173'],
+    origin: corsOrigins,
     credentials: true,
   });
   app.useGlobalPipes(

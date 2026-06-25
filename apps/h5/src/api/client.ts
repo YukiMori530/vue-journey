@@ -19,14 +19,19 @@ const API_BASE = import.meta.env.VITE_API_BASE ?? ''
 
 export async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const token = getStoredToken()
-  const response = await fetch(`${API_BASE}${path}`, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...options.headers,
-    },
-  })
+  let response: Response
+  try {
+    response = await fetch(`${API_BASE}${path}`, {
+      ...options,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...options.headers,
+      },
+    })
+  } catch {
+    throw new ApiError('网络异常，请确认后端已启动且可访问', 0)
+  }
 
   if (!response.ok) {
     const body = (await response.json().catch(() => null)) as

@@ -143,7 +143,7 @@ export const useTripStore = defineStore('trip', {
       const trip = await tripsApi.createTrip({
         destination,
         days,
-        preferences: note.keywords.slice(0, 3),
+        preferences: note.keywords?.slice(0, 3) ?? [],
         title: note.title,
         nights: `${days}天${Math.max(days - 1, 0)}晚`,
         placeCount,
