@@ -67,7 +67,14 @@ body {
   word-break: keep-all !important;
   text-align: center;
   pointer-events: none;
-  animation: app-toast-in 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.app-toast.van-toast.van-fade-enter-active {
+  animation: app-toast-in 0.32s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.app-toast.van-toast.van-fade-leave-active {
+  animation: app-toast-out 0.22s ease forwards;
 }
 
 .app-toast.van-toast.van-popup--center {
@@ -76,10 +83,6 @@ body {
   top: 50% !important;
   margin: 0 !important;
   transform: translate(-50%, -50%) !important;
-}
-
-.app-toast.van-toast--leave-active {
-  animation: app-toast-out 0.22s ease forwards;
 }
 
 .app-toast .van-toast__icon {

@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useRouter } from 'vue-router'
 import TripCard from '../components/trip-card.vue'
 import AppHeader from '../components/app-header.vue'
 import { useTripStore } from '../stores/trip'
 import { useAuthStore } from '../stores/auth'
 import { ApiError } from '../api/client'
-import { showAppFailToast, showAppSuccessToast } from '../utils/app-toast'
+import { showAppFailToast } from '../utils/app-toast'
 
 type TripFilter = 'all' | 'planned' | 'empty' | 'recent'
 
@@ -18,7 +18,6 @@ const FILTER_OPTIONS: Array<{ value: TripFilter; label: string }> = [
 ]
 
 const router = useRouter()
-const route = useRoute()
 const tripStore = useTripStore()
 const authStore = useAuthStore()
 
@@ -63,15 +62,6 @@ onMounted(async () => {
     const message =
       error instanceof ApiError ? error.message : '加载行程失败，请确认后端已启动'
     showAppFailToast(message)
-  }
-
-  if (route.query.deleted === '1') {
-    const name =
-      typeof route.query.name === 'string' && route.query.name.trim()
-        ? route.query.name.trim()
-        : '行程'
-    showAppSuccessToast(`「${name}」已移除`)
-    router.replace({ path: '/' })
   }
 })
 
