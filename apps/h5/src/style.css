@@ -39,18 +39,17 @@ body {
 }
 
 .app-toast.van-toast {
-  left: 50% !important;
-  top: 50% !important;
-  transform: translate(-50%, -50%) !important;
+  display: flex !important;
   flex-direction: row !important;
+  flex-wrap: nowrap !important;
   align-items: center !important;
-  justify-content: flex-start !important;
-  gap: 12px;
+  justify-content: center !important;
+  gap: 10px;
   width: max-content !important;
   max-width: min(340px, calc(100vw - 40px));
   min-width: 0 !important;
-  min-height: auto !important;
-  padding: 14px 18px !important;
+  min-height: 0 !important;
+  padding: 12px 20px !important;
   border-radius: 18px !important;
   background: rgb(255 255 255 / 96%) !important;
   border: 1px solid rgb(124 92 191 / 12%);
@@ -63,10 +62,20 @@ body {
   color: #1a1a1a !important;
   font-size: 14px !important;
   font-weight: 600;
-  line-height: 1.45;
+  line-height: 1.4;
+  white-space: nowrap !important;
+  word-break: keep-all !important;
+  text-align: center;
   pointer-events: none;
-  word-break: break-word;
   animation: app-toast-in 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.app-toast.van-toast.van-popup--center {
+  left: 50% !important;
+  right: auto !important;
+  top: 50% !important;
+  margin: 0 !important;
+  transform: translate(-50%, -50%) !important;
 }
 
 .app-toast.van-toast--leave-active {
@@ -74,25 +83,27 @@ body {
 }
 
 .app-toast .van-toast__icon {
-  flex-shrink: 0;
+  flex: 0 0 auto;
   display: flex !important;
   align-items: center;
   justify-content: center;
-  width: 32px !important;
-  height: 32px !important;
+  width: 28px !important;
+  height: 28px !important;
   margin: 0 !important;
-  font-size: 16px !important;
+  font-size: 15px !important;
   line-height: 1 !important;
   border-radius: 50%;
 }
 
 .app-toast .van-toast__text {
-  margin-top: 0 !important;
+  flex: 0 1 auto;
+  margin: 0 !important;
   padding: 0 !important;
   max-width: none;
-  text-align: left;
-  line-height: 1.5;
+  text-align: center;
+  line-height: 1.4;
   font-weight: 600;
+  white-space: nowrap;
 }
 
 .app-toast--success {
@@ -131,7 +142,15 @@ body {
   box-shadow: 0 4px 12px rgb(25 137 250 / 28%);
 }
 
+.app-toast--loading {
+  flex-direction: row !important;
+  justify-content: center !important;
+}
+
 .app-toast--loading .van-toast__loading {
+  flex: 0 0 auto;
+  margin: 0 !important;
+  padding: 0 !important;
   color: #7c5cbf !important;
 }
 
