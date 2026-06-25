@@ -7,14 +7,17 @@ import TripChatSheet from '../components/trip-chat-sheet.vue'
 import TripOverviewMap from '../components/trip-overview-map.vue'
 import TripOverviewBody from '../components/trip-overview-body.vue'
 import TripDayItinerary from '../components/trip-day-itinerary.vue'
+import StopDetailSheet from '../components/stop-detail-sheet.vue'
 import { useResolvedTripStops } from '../composables/use-resolved-trip-stops'
 import { useTripStore } from '../stores/trip'
 import { useAuthStore } from '../stores/auth'
 import { useProfileStore } from '../stores/profile'
 import { enrichDayPlan } from '../utils/enrich-trip-stops'
+import { formatStopDisplayName } from '../utils/display-stop-name'
 import { pickRevisionFocusDay } from '../utils/pick-revision-focus-day'
 import { showAppFailToast, showAppSuccessToast } from '../utils/app-toast'
 import { ApiError } from '../api/client'
+import type { TripStop } from '../types/trip'
 
 const route = useRoute()
 const router = useRouter()
@@ -28,6 +31,9 @@ const deleting = ref(false)
 const showChatSheet = ref(false)
 const revising = ref(false)
 const chatSheetRef = ref<InstanceType<typeof TripChatSheet> | null>(null)
+const chatDraftMessage = ref('')
+const showStopDetail = ref(false)
+const selectedStop = ref<{ stop: TripStop; index: number } | null>(null)
 
 const tripId = computed(() => Number(route.params.id))
 const trip = computed(() => tripStore.tripById(tripId.value))
@@ -106,12 +112,37 @@ function selectDayFromOverview(day: number) {
   selectedTab.value = day
 }
 
-function openChatSheet() {
+function openChatSheet(draft?: string) {
   if (isEmpty.value) {
     showAppFailToast('先添加地点再调整行程')
     return
   }
+  chatDraftMessage.value = draft?.trim() ?? ''
   showChatSheet.value = true
+}
+
+function openStopDetail(payload: { stop: TripStop; index: number }) {
+  selectedStop.value = payload
+  showStopDetail.value = true
+}
+
+function editStopFromSheet() {
+  if (!selectedStop.value || !trip.value) {
+    return
+  }
+  editStop(selectedStop.value)
+  showStopDetail.value = false
+}
+
+function editStop(payload: { stop: TripStop; index: number }) {
+  if (!trip.value) {
+    return
+  }
+  const displayName = formatStopDisplayName(payload.stop.name, trip.value.destination)
+  const day = activeDay.value
+  openChatSheet(
+    `请优化 DAY ${day} 第 ${payload.index + 1} 站「${displayName}」：说明停留时长、顺序或替换为更合适的地点。`,
+  )
 }
 
 async function handleRevise(message: string) {
@@ -142,6 +173,10 @@ async function handleRevise(message: string) {
 
 function openDeleteDialog() {
   showDeleteDialog.value = true
+}
+
+function openAdjustSheet() {
+  openChatSheet()
 }
 
 async function handleReviseSubmit(message: string) {
@@ -293,16 +328,18 @@ async function confirmDelete() {
           :title="activeDayTitle"
           :destination="trip.destination"
           :stops="activeDayStops"
+          @open="openStopDetail"
+          @edit="editStop"
         />
       </div>
     </section>
 
     <footer class="detail-footer">
-      <button type="button" class="ai-bar" @click="openChatSheet">
+      <button type="button" class="ai-bar" @click="openAdjustSheet">
         <van-icon name="chat-o" size="18" color="#7C5CBF" />
         <span>给途绘发送消息…</span>
       </button>
-      <button type="button" class="edit-btn" @click="openChatSheet">
+      <button type="button" class="edit-btn" @click="openAdjustSheet">
         <van-icon name="edit" size="16" />
         调整
       </button>
@@ -313,7 +350,16 @@ async function confirmDelete() {
       v-model:show="showChatSheet"
       :trip="trip"
       :busy="revising"
+      :draft-message="chatDraftMessage"
       @submit="handleReviseSubmit"
+    />
+
+    <StopDetailSheet
+      v-model:show="showStopDetail"
+      :stop="selectedStop?.stop ?? null"
+      :index="selectedStop?.index ?? 0"
+      :destination="trip.destination"
+      @edit="editStopFromSheet"
     />
 
     <ConfirmDialog

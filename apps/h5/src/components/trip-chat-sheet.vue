@@ -11,6 +11,7 @@ export interface ChatMessage {
 const props = defineProps<{
   trip: Trip
   busy?: boolean
+  draftMessage?: string
 }>()
 
 const show = defineModel<boolean>('show', { default: false })
@@ -49,7 +50,7 @@ function resetChat() {
     },
   ]
   thinkingSteps.value = []
-  input.value = ''
+  input.value = props.draftMessage?.trim() ?? ''
 }
 
 watch(

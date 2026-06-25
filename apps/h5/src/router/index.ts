@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import TripView from '../views/trip-view.vue'
 import ExploreView from '../views/explore-view.vue'
+import ExploreCityView from '../views/explore-city-view.vue'
 import CreateView from '../views/create-view.vue'
 import CreatePlanView from '../views/create-plan-view.vue'
 import PlanGeneratingView from '../views/plan-generating-view.vue'
@@ -25,6 +26,7 @@ const router = createRouter({
   routes: [
     { path: '/', name: 'trip', component: TripView, meta: { requiresAuth: true } },
     { path: '/explore', name: 'explore', component: ExploreView },
+    { path: '/explore/city/:cityId', name: 'explore-city', component: ExploreCityView, meta: { hideTabBar: true } },
     { path: '/login', name: 'login', component: LoginView, meta: { hideTabBar: true, guestOnly: true } },
     { path: '/search', name: 'search', component: SearchView, meta: { hideTabBar: true, requiresAuth: true } },
     { path: '/import', name: 'import', component: ImportView, meta: { hideTabBar: true, requiresAuth: true } },

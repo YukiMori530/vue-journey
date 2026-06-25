@@ -59,14 +59,6 @@ async function createEmptyPlan() {
       <button type="button" class="back-btn" aria-label="返回" @click="goBack">
         <van-icon name="arrow-left" size="20" />
       </button>
-      <button
-        type="button"
-        class="empty-plan-btn"
-        :disabled="creatingEmpty"
-        @click="createEmptyPlan"
-      >
-        {{ creatingEmpty ? '创建中…' : '创建空计划' }}
-      </button>
     </header>
 
     <div class="create-body">
@@ -115,6 +107,18 @@ async function createEmptyPlan() {
           </button>
         </div>
       </div>
+
+      <div class="empty-plan-center">
+        <p class="empty-plan-hint">还没想好去哪？可以先建一个空白计划慢慢填</p>
+        <button
+          type="button"
+          class="empty-plan-btn"
+          :disabled="creatingEmpty"
+          @click="createEmptyPlan"
+        >
+          {{ creatingEmpty ? '创建中…' : '创建空计划' }}
+        </button>
+      </div>
     </div>
   </div>
 </template>
@@ -128,7 +132,6 @@ async function createEmptyPlan() {
 .create-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   padding: 12px 16px;
 }
 
@@ -140,17 +143,6 @@ async function createEmptyPlan() {
   height: 40px;
   border: none;
   background: transparent;
-  cursor: pointer;
-}
-
-.empty-plan-btn {
-  padding: 10px 18px;
-  border: none;
-  border-radius: 999px;
-  background: #111;
-  font-size: 14px;
-  font-weight: 600;
-  color: #fff;
   cursor: pointer;
 }
 
@@ -279,5 +271,35 @@ async function createEmptyPlan() {
   margin: 0;
   font-size: 12px;
   color: #969799;
+}
+
+.empty-plan-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 42vh;
+  padding: 32px 12px;
+  text-align: center;
+}
+
+.empty-plan-hint {
+  margin: 0 0 20px;
+  max-width: 260px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: #969799;
+}
+
+.empty-plan-btn {
+  min-width: 200px;
+  padding: 14px 28px;
+  border: none;
+  border-radius: 999px;
+  background: #111;
+  font-size: 16px;
+  font-weight: 600;
+  color: #fff;
+  cursor: pointer;
 }
 </style>

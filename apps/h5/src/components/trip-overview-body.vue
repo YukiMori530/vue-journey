@@ -10,6 +10,8 @@ import TripPackSheet from './trip-pack-sheet.vue'
 import PlaceCoverImage from './place-cover-image.vue'
 import { extractTripStopNames, primaryPlaceName, resolveTripCoverStop } from '../utils/place-photo'
 
+import { formatStopDisplayName } from '../utils/display-stop-name'
+
 const props = defineProps<{
   trip: Trip
   days: ResolvedDayStops[]
@@ -49,7 +51,9 @@ const visibleDays = computed(() =>
 )
 
 function placeChain(stops: ResolvedDayStops['stops']) {
-  return stops.map((stop) => stop.name).join(' → ')
+  return stops
+    .map((stop) => formatStopDisplayName(stop.name, props.trip.destination))
+    .join(' → ')
 }
 
 function openCollect() {

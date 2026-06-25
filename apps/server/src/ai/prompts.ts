@@ -9,11 +9,11 @@ JSON 结构：
       "title": "DAY 1 主题标题，如啤酒海鲜之夜",
       "pois": [
         {
-          "name": "地点全称，含城市名避免歧义，如青岛台东步行街",
+          "name": "景点/店铺正式名称，不要加城市前缀（如「天安门广场」而非「北京天安门广场」）",
           "duration": 90,
           "category": "food",
-          "tips": "可选提示",
-          "description": "100字以内，说明为何符合用户需求",
+          "tips": "可选，游玩/点餐/避坑小贴士",
+          "description": "120-180字，含历史背景或特色、推荐玩法、停留建议，信息具体可读",
           "startTime": "09:00",
           "endTime": "10:30"
         }
@@ -89,7 +89,8 @@ ${notes}
 
 请生成完整行程 JSON。days 长度必须等于 ${input.days}，day 从 1 递增。
 title 和每日 title 应体现「${preferences}」主题。
-每个 poi.name 必须是高德能搜到的具体地点（正式景区/美食街/市场名），不要输出「XX区海鲜市场」等泛称。`;
+每个 poi.name 必须是高德能搜到的具体地点（正式景区/美食街/市场名），不要输出「XX区海鲜市场」等泛称；name 字段不要重复加城市名前缀。
+每个 poi.description 写 120-180 字，内容具体，避免「值得停留的一站」等空泛套话。`;
 }
 
 export function buildParseUserPrompt(text: string) {

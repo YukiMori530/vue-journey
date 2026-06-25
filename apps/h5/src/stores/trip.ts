@@ -1,32 +1,63 @@
 import { defineStore } from 'pinia'
 import * as aiApi from '../api/ai'
 import * as tripsApi from '../api/trips'
+import * as notesApi from '../api/notes'
 import type { HotTrip, FeaturedTopic } from '../data/discover'
 import type { CreateTripInput, DayPlan, Trip } from '../types/trip'
-import { parseDaysFromDuration } from '../utils/parse-guide'
+import { parseDaysFromDuration, parseGuideText } from '../utils/parse-guide'
 import { pickTripTheme } from '../utils/trip-themes'
 
-const PLACE_TEMPLATES = [
-  '中心广场',
-  '特色步行街',
-  '本地美食街',
-  '城市公园',
-  '博物馆',
-  '网红咖啡店',
-  '观景平台',
-  '古街片区',
-]
+const CITY_LANDMARKS: Record<string, string[]> = {
+  昆明: ['翠湖公园', '金马碧鸡坊', '南屏步行街', '云南大学', '官渡古镇', '西山龙门', '滇池海埂公园', '石林风景区'],
+  南昌: ['滕王阁', '八一广场', '万寿宫历史文化街区', '绳金塔美食街', '秋水广场', '江西省博物馆'],
+  林芝: ['嘎拉桃花村', '雅鲁藏布大峡谷', '南迦巴瓦观景台', '鲁朗林海', '巴松措', '米堆冰川'],
+  伊宁: ['赛里木湖', '果子沟大桥', '喀赞其民俗旅游区', '六星街', '伊犁河湿地公园', '那拉提草原'],
+  北京: ['天安门广场', '故宫博物院', '景山公园', '颐和园', '南锣鼓巷', '什刹海'],
+}
+
+function landmarksFor(destination: string): string[] {
+  const key = Object.keys(CITY_LANDMARKS).find((city) => destination.includes(city))
+  return key ? CITY_LANDMARKS[key] : []
+}
 
 function mockDayPlans(destination: string, days: number): DayPlan[] {
+  const pool = landmarksFor(destination)
   return Array.from({ length: days }, (_, index) => {
     const day = index + 1
-    const count = 2 + (day % 3)
+    const count = 2 + (day % 2)
     const places = Array.from({ length: count }, (_, placeIndex) => {
-      const template = PLACE_TEMPLATES[(day + placeIndex) % PLACE_TEMPLATES.length]
-      return `${destination}${template}`
+      if (pool.length) {
+        return pool[(index * count + placeIndex) % pool.length]
+      }
+      const templates = ['中心广场', '特色步行街', '本地美食街', '城市公园', '博物馆']
+      return templates[(day + placeIndex) % templates.length]
     })
     return { day, places }
   })
+}
+
+async function buildDayPlansFromHotTrip(item: HotTrip, days: number): Promise<DayPlan[]> {
+  const destination = item.keywords[0] ?? '热门'
+  try {
+    const notes = await notesApi.searchNotes(
+      `${destination} ${item.keywords.slice(1, 3).join(' ')}`.trim(),
+      destination,
+    )
+    const note = notes[0]
+    if (note?.content) {
+      const parsed = parseGuideText(note.content)
+      if (parsed.dayPlans.length) {
+        const plans = parsed.dayPlans.slice(0, days)
+        while (plans.length < days) {
+          plans.push({ day: plans.length + 1, places: [] })
+        }
+        return plans
+      }
+    }
+  } catch {
+    // fallback below
+  }
+  return mockDayPlans(destination, days)
 }
 
 function upsertTrip(trips: Trip[], trip: Trip) {
@@ -110,13 +141,8 @@ export const useTripStore = defineStore('trip', {
     async addTripFromHotTrip(item: HotTrip) {
       const days = parseDaysFromDuration(item.duration)
       const destination = item.keywords[0] ?? '热门'
-      const dayPlans = mockDayPlans(destination, days).map((day, index) => ({
-        ...day,
-        places: day.places.map((_place, placeIndex) => {
-          const keyword = item.keywords[(index + placeIndex) % item.keywords.length]
-          return `${destination}·${keyword}${placeIndex + 1}号点`
-        }),
-      }))
+      const dayPlans = await buildDayPlansFromHotTrip(item, days)
+      const placeCount = dayPlans.reduce((sum, day) => sum + day.places.length, 0)
 
       const trip = await tripsApi.createTrip({
         destination,
@@ -124,7 +150,7 @@ export const useTripStore = defineStore('trip', {
         preferences: item.keywords.slice(1, 3),
         title: item.title,
         nights: item.duration.replace(/\s*·.*/, '').trim(),
-        placeCount: item.placeCount,
+        placeCount: placeCount || item.placeCount,
         cover: item.cover,
         theme: pickTripTheme(item.id).bg,
         dayPlans,

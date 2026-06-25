@@ -162,6 +162,75 @@ export class NotesService {
     return rankNotes(notes, query, opts);
   }
 
+  private citySlug(destination: string): string {
+    const map: Record<string, string> = {
+      北京: 'beijing',
+      成都: 'chengdu',
+      上海: 'shanghai',
+      烟台: 'yantai',
+      敦煌: 'dunhuang',
+      天津: 'tianjin',
+      保定: 'baoding',
+      昆明: 'kunming',
+      南昌: 'nanchang',
+      福州: 'fuzhou',
+      平潭: 'pingtan',
+    };
+    const key = destination.replace(/(市|县|区|省)$/, '');
+    return map[key] ?? key.toLowerCase().replace(/\s+/g, '-');
+  }
+
+  async getExploreFeed() {
+    const notes = await this.loadNotes();
+    const collections = notes.slice(0, 8).map((note) => ({
+      id: note.id,
+      title: note.title,
+      cover: note.cover,
+      destination: note.destination,
+    }));
+
+    const cityMap = new Map<
+      string,
+      {
+        id: string
+        name: string
+        cover: string
+        planCount: string
+        description: string
+        rankTag?: string
+        guideCount: number
+      }
+    >();
+
+    notes.forEach((note, index) => {
+      const key = note.destination.replace(/(市|县|区)$/, '') || note.destination;
+      const existing = cityMap.get(key);
+      if (existing) {
+        existing.guideCount += 1;
+        return;
+      }
+      cityMap.set(key, {
+        id: this.citySlug(key),
+        name: note.destination.includes('市') ? note.destination : `${note.destination}市`,
+        cover: note.cover,
+        planCount: note.likes ? `${note.likes} 人收藏攻略` : `${Math.max(3, note.days * 2)} 篇攻略`,
+        description: note.snippet,
+        rankTag: index < 2 ? `中国热度 top${index + 2}` : undefined,
+        guideCount: 1,
+      });
+    });
+
+    return {
+      collections,
+      hotCities: [...cityMap.values()].slice(0, 12),
+    };
+  }
+
+  async findByDestination(destination: string, limit = 12): Promise<XhsNote[]> {
+    const notes = await this.loadNotes(destination);
+    return notes.slice(0, limit);
+  }
+
   async findById(id: string): Promise<XhsNote | undefined> {
     try {
       const row = await this.prisma.travelGuide.findUnique({ where: { id } });

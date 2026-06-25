@@ -1,22 +1,24 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, shallowRef } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { showToast } from 'vant'
 import CoverImage from '../components/cover-image.vue'
 import { exploreCities, getCityById, type ExplorePoi, type PoiCategory } from '../data/explore-pois'
-import {
-  exploreCollections,
-  hotCities,
-  mapStories,
-  type MapStory,
-} from '../data/explore-discover'
+import { mapStories, type MapStory } from '../data/explore-discover'
+import { fetchExploreFeed, type ExploreCollectionItem, type ExploreHotCity } from '../api/notes'
 import { useAuthStore } from '../stores/auth'
 import { loadAMap } from '../utils/amap'
+import { detectUserLocation } from '../utils/user-location'
 
 const TAB_BAR_HEIGHT = 68
 
 const router = useRouter()
+const route = useRoute()
 const authStore = useAuthStore()
+
+const exploreCollections = ref<ExploreCollectionItem[]>([])
+const hotCities = ref<ExploreHotCity[]>([])
+const feedLoading = ref(true)
 
 const mapContainer = ref<HTMLElement | null>(null)
 const mapInstance = shallowRef<AMap.Map | null>(null)
@@ -125,6 +127,11 @@ function handlePoiClick(poi: ExplorePoi) {
 }
 
 function handleStoryClick(story: MapStory) {
+  const city = exploreCities.find((item) => item.id === story.cityId)
+  if (city) {
+    router.push(`/explore/city/${city.id}`)
+    return
+  }
   showToast(story.text)
 }
 
@@ -243,12 +250,22 @@ function handleMyLocation() {
   )
 }
 
-function openCollection(item: { title: string }) {
-  showToast(`合集「${item.title}」即将上线`)
+function resolveExploreCityId(destination: string) {
+  const normalized = destination.replace(/(市|县|区|省)$/, '')
+  const matched = exploreCities.find(
+    (city) =>
+      city.name.includes(normalized) ||
+      normalized.includes(city.name.replace(/(市|县|区)$/, '')),
+  )
+  return matched?.id ?? normalized.toLowerCase()
 }
 
-function openHotCity(city: { name: string }) {
-  showToast(`${city.name} 详情即将上线`)
+function openCollection(item: ExploreCollectionItem) {
+  router.push(`/explore/city/${resolveExploreCityId(item.destination)}`)
+}
+
+function openHotCity(city: ExploreHotCity) {
+  router.push(`/explore/city/${city.id}`)
 }
 
 function getSafeAreaBottom() {
@@ -280,10 +297,46 @@ function toggleSheetExpand() {
   sheetHeight.value = isSheetExpanded.value ? collapsed : full
 }
 
-onMounted(() => {
+async function loadExploreFeed() {
+  feedLoading.value = true
+  try {
+    const feed = await fetchExploreFeed()
+    exploreCollections.value = feed.collections
+    hotCities.value = feed.hotCities
+  } catch {
+    showToast('地点合集加载失败，请稍后重试')
+  } finally {
+    feedLoading.value = false
+  }
+}
+
+async function initUserCity() {
+  const queryCity = typeof route.query.city === 'string' ? route.query.city : ''
+  if (queryCity) {
+    switchCity(queryCity)
+    return
+  }
+
+  const location = await detectUserLocation()
+  if (!location) {
+    return
+  }
+
+  if (location.cityId) {
+    switchCity(location.cityId)
+  }
+
+  const map = mapInstance.value
+  if (map) {
+    map.setCenter([location.lng, location.lat])
+  }
+}
+
+onMounted(async () => {
   updateSheetAnchors()
   window.addEventListener('resize', updateSheetAnchors)
-  initMap()
+  await Promise.all([initMap(), loadExploreFeed()])
+  await initUserCity()
 })
 
 onUnmounted(() => {
@@ -361,7 +414,8 @@ onUnmounted(() => {
       </button>
       <div class="sheet-content">
         <h2 class="sheet-title">为你发现了一些地点合集</h2>
-        <div class="collection-scroll">
+        <van-loading v-if="feedLoading" class="feed-loading" vertical size="20">加载中...</van-loading>
+        <div v-else class="collection-scroll">
           <button
             v-for="item in exploreCollections"
             :key="item.id"
@@ -374,7 +428,7 @@ onUnmounted(() => {
           </button>
         </div>
 
-        <div class="hot-city-list">
+        <div v-if="!feedLoading" class="hot-city-list">
           <button
             v-for="city in hotCities"
             :key="city.id"

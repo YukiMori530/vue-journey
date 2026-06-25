@@ -1,7 +1,6 @@
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { showToast } from 'vant'
 import TripCard from '../components/trip-card.vue'
 import AppHeader from '../components/app-header.vue'
 import { useTripStore } from '../stores/trip'
@@ -9,16 +8,46 @@ import { useAuthStore } from '../stores/auth'
 import { ApiError } from '../api/client'
 import { showAppFailToast, showAppSuccessToast } from '../utils/app-toast'
 
+type TripFilter = 'all' | 'planned' | 'empty' | 'recent'
+
+const FILTER_OPTIONS: Array<{ value: TripFilter; label: string }> = [
+  { value: 'all', label: '全部' },
+  { value: 'recent', label: '最近更新' },
+  { value: 'planned', label: '已规划' },
+  { value: 'empty', label: '空计划' },
+]
+
 const router = useRouter()
 const route = useRoute()
 const tripStore = useTripStore()
 const authStore = useAuthStore()
+
+const tripFilter = ref<TripFilter>('all')
+const showFilterSheet = ref(false)
 
 const greeting = computed(() => {
   const hour = new Date().getHours()
   if (hour < 12) return '早上好'
   if (hour < 18) return '下午好'
   return '晚上好'
+})
+
+const filterLabel = computed(
+  () => FILTER_OPTIONS.find((item) => item.value === tripFilter.value)?.label ?? '全部',
+)
+
+const filteredTrips = computed(() => {
+  const list = [...tripStore.trips]
+  switch (tripFilter.value) {
+    case 'planned':
+      return list.filter((trip) => trip.placeCount > 0)
+    case 'empty':
+      return list.filter((trip) => trip.placeCount === 0)
+    case 'recent':
+      return list.sort((a, b) => (b.id ?? 0) - (a.id ?? 0))
+    default:
+      return list
+  }
 })
 
 onMounted(async () => {
@@ -49,6 +78,14 @@ onMounted(async () => {
 function openTrip(id: number) {
   router.push(`/trip/${id}`)
 }
+
+function onFilterSelect(action: { name: string }) {
+  const next = FILTER_OPTIONS.find((item) => item.label === action.name)
+  if (next) {
+    tripFilter.value = next.value
+  }
+  showFilterSheet.value = false
+}
 </script>
 
 <template>
@@ -65,9 +102,9 @@ function openTrip(id: number) {
         <p class="trip-greeting">{{ greeting }}，{{ authStore.displayName }}</p>
         <div class="hero-row">
           <h2 class="section-title">我的计划</h2>
-          <button type="button" class="filter-chip" @click="showToast('筛选开发中')">
+          <button type="button" class="filter-chip" @click="showFilterSheet = true">
             <van-icon name="exchange" size="14" />
-            全部
+            {{ filterLabel }}
           </button>
         </div>
       </section>
@@ -88,9 +125,13 @@ function openTrip(id: number) {
           <p class="empty-tip">点击底部 + 创建你的第一个计划</p>
         </div>
 
+        <div v-else-if="filteredTrips.length === 0" class="empty-wrap">
+          <van-empty :description="`暂无${filterLabel}的行程`" />
+        </div>
+
         <div v-else class="trip-list">
           <TripCard
-            v-for="trip in tripStore.trips"
+            v-for="trip in filteredTrips"
             :key="trip.id"
             :trip="trip"
             @click="openTrip(trip.id)"
@@ -98,6 +139,14 @@ function openTrip(id: number) {
         </div>
       </section>
     </div>
+
+    <van-action-sheet
+      v-model:show="showFilterSheet"
+      :actions="FILTER_OPTIONS.map((item) => ({ name: item.label }))"
+      cancel-text="取消"
+      close-on-click-action
+      @select="onFilterSelect"
+    />
   </div>
 </template>
 

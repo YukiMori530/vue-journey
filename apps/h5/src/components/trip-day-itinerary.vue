@@ -3,6 +3,7 @@ import { computed } from 'vue'
 import type { TripStop } from '../types/trip'
 import PlaceCoverImage from './place-cover-image.vue'
 import { enrichStop } from '../utils/enrich-trip-stops'
+import { formatStopDisplayName } from '../utils/display-stop-name'
 
 const props = defineProps<{
   title: string
@@ -10,9 +11,27 @@ const props = defineProps<{
   stops: TripStop[]
 }>()
 
+const emit = defineEmits<{
+  open: [payload: { stop: TripStop; index: number }]
+  edit: [payload: { stop: TripStop; index: number }]
+}>()
+
 const enrichedStops = computed(() =>
   props.stops.map((stop, index) => enrichStop(stop, index, props.destination)),
 )
+
+function displayName(stop: TripStop) {
+  return formatStopDisplayName(stop.name, props.destination)
+}
+
+function onOpen(stop: TripStop, index: number) {
+  emit('open', { stop, index })
+}
+
+function onEdit(event: Event, stop: TripStop, index: number) {
+  event.stopPropagation()
+  emit('edit', { stop, index })
+}
 </script>
 
 <template>
@@ -26,7 +45,7 @@ const enrichedStops = computed(() =>
         <van-icon name="arrow" size="12" color="#c8c9cc" />
       </div>
 
-      <article class="stop-card">
+      <article class="stop-card" role="button" tabindex="0" @click="onOpen(stop, index)">
         <PlaceCoverImage
           class="stop-card__cover"
           :name="stop.name"
@@ -35,7 +54,7 @@ const enrichedStops = computed(() =>
         />
         <div class="stop-card__body">
           <div class="stop-card__head">
-            <h3>{{ index + 1 }}. {{ stop.name }}</h3>
+            <h3>{{ index + 1 }}. {{ displayName(stop) }}</h3>
             <span v-if="stop.categoryLabel" class="stop-tag">{{ stop.categoryLabel }}</span>
           </div>
           <p v-if="stop.startTime && stop.endTime" class="stop-time">
@@ -46,7 +65,12 @@ const enrichedStops = computed(() =>
           </p>
           <p class="stop-desc">{{ stop.description }}</p>
         </div>
-        <button type="button" class="stop-edit" aria-label="编辑">
+        <button
+          type="button"
+          class="stop-edit"
+          aria-label="编辑"
+          @click="onEdit($event, stop, index)"
+        >
           <van-icon name="edit" size="14" color="#969799" />
         </button>
       </article>
@@ -83,6 +107,7 @@ const enrichedStops = computed(() =>
   border-radius: 16px;
   background: #fff;
   box-shadow: 0 2px 12px rgb(0 0 0 / 5%);
+  cursor: pointer;
 }
 
 .stop-card__cover {
@@ -136,6 +161,10 @@ const enrichedStops = computed(() =>
   font-size: 13px;
   line-height: 1.55;
   color: #646566;
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
 }
 
 .stop-edit {
