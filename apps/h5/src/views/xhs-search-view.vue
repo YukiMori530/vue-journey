@@ -1,11 +1,16 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { showToast } from 'vant'
 import CoverImage from '../components/cover-image.vue'
 import { searchNotes, type XhsNote } from '../api/notes'
 import { useTripStore } from '../stores/trip'
 import { ApiError } from '../api/client'
+import {
+  closeAppToast,
+  showAppFailToast,
+  showAppLoadingToast,
+  showAppSuccessToast,
+} from '../utils/app-toast'
 
 const router = useRouter()
 const tripStore = useTripStore()
@@ -25,7 +30,7 @@ async function loadNotes(query: string) {
     notes.value = await searchNotes(query)
   } catch (error) {
     const message = error instanceof ApiError ? error.message : '搜索失败'
-    showToast(message)
+    showAppFailToast(message)
   } finally {
     loading.value = false
   }
@@ -41,13 +46,16 @@ function handleSearch() {
 
 async function importNote(note: XhsNote) {
   importingId.value = note.id
+  showAppLoadingToast('正在导入攻略…')
   try {
-    const trip = await tripStore.addTripFromText(note.content)
-    showToast('已从攻略导入')
+    const trip = await tripStore.addTripFromGuide(note)
+    closeAppToast()
+    showAppSuccessToast('攻略已导入')
     router.push(`/trip/${trip.id}?day=1`)
   } catch (error) {
+    closeAppToast()
     const message = error instanceof ApiError ? error.message : '导入失败'
-    showToast(message)
+    showAppFailToast(message)
   } finally {
     importingId.value = ''
   }

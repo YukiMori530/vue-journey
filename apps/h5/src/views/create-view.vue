@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { showToast } from 'vant'
+import { showAppFailToast, showAppSuccessToast, showAppToast } from '../utils/app-toast'
 import { useTripStore } from '../stores/trip'
 import { ApiError } from '../api/client'
 import { searchPlaceSuggestions } from '../utils/place-suggestions'
@@ -25,7 +25,7 @@ function clearPrompt() {
 
 function openSmartPlan() {
   if (!prompt.value.trim()) {
-    showToast('输入目的地或行程想法')
+    showAppToast('输入目的地或行程想法')
     return
   }
   router.push({
@@ -42,11 +42,11 @@ async function createEmptyPlan() {
   creatingEmpty.value = true
   try {
     const trip = await tripStore.addEmptyTrip()
-    showToast('已创建空计划')
+    showAppSuccessToast('空计划已创建')
     router.push(`/trip/${trip.id}`)
   } catch (error) {
     const message = error instanceof ApiError ? error.message : '创建失败'
-    showToast(message)
+    showAppFailToast(message)
   } finally {
     creatingEmpty.value = false
   }

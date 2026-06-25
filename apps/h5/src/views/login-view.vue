@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { showToast } from 'vant'
 import { ApiError } from '../api/client'
 import { useAuthStore } from '../stores/auth'
+import { showAppFailToast, showAppSuccessToast, showAppToast } from '../utils/app-toast'
 
 const router = useRouter()
 const route = useRoute()
@@ -30,15 +30,15 @@ async function handleSubmit() {
   const pwd = password.value.trim()
 
   if (!mail) {
-    showToast('请输入邮箱')
+    showAppToast('请输入邮箱')
     return
   }
   if (pwd.length < 6) {
-    showToast('密码至少 6 位')
+    showAppToast('密码至少 6 位')
     return
   }
   if (mode.value === 'register' && !nickname.value.trim()) {
-    showToast('请输入昵称')
+    showAppToast('请输入昵称')
     return
   }
 
@@ -46,17 +46,17 @@ async function handleSubmit() {
   try {
     if (mode.value === 'register') {
       await authStore.register(mail, pwd, nickname.value.trim())
-      showToast('注册成功')
+      showAppSuccessToast('注册成功，欢迎加入途绘')
     } else {
       await authStore.login(mail, pwd)
-      showToast('登录成功')
+      showAppSuccessToast('登录成功，欢迎回来')
     }
 
     const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '/'
     router.replace(redirect)
   } catch (error) {
     const message = error instanceof ApiError ? error.message : '操作失败，请稍后重试'
-    showToast(message)
+    showAppFailToast(message)
   } finally {
     submitting.value = false
   }

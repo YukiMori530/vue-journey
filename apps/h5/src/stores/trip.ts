@@ -4,6 +4,7 @@ import * as tripsApi from '../api/trips'
 import * as notesApi from '../api/notes'
 import type { HotTrip, FeaturedTopic } from '../data/discover'
 import type { CreateTripInput, DayPlan, Trip } from '../types/trip'
+import type { XhsNote } from '../api/notes'
 import { parseDaysFromDuration, parseGuideText } from '../utils/parse-guide'
 import { pickTripTheme } from '../utils/trip-themes'
 
@@ -127,6 +128,28 @@ export const useTripStore = defineStore('trip', {
         cover: '/covers/default.jpg',
         theme,
         dayPlans: [],
+      })
+      upsertTrip(this.trips, trip)
+      return trip
+    },
+
+    async addTripFromGuide(note: XhsNote) {
+      const parsed = parseGuideText(note.content)
+      const destination = note.destination || parsed.destination
+      const dayPlans = parsed.dayPlans
+      const days = note.days || parsed.days || dayPlans.length || 1
+      const placeCount = dayPlans.reduce((sum, day) => sum + day.places.length, 0)
+
+      const trip = await tripsApi.createTrip({
+        destination,
+        days,
+        preferences: note.keywords.slice(0, 3),
+        title: note.title,
+        nights: `${days}天${Math.max(days - 1, 0)}晚`,
+        placeCount,
+        cover: note.cover,
+        theme: pickTripTheme(note.id.length + days).bg,
+        dayPlans,
       })
       upsertTrip(this.trips, trip)
       return trip
