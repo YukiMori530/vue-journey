@@ -1,4 +1,6 @@
-import { closeToast, showToast } from 'vant'
+import { ref } from 'vue'
+
+export type AppToastKind = 'success' | 'fail' | 'info' | 'plain' | 'loading'
 
 type AppToastOptions = {
   duration?: number
@@ -6,14 +8,9 @@ type AppToastOptions = {
 
 const PENDING_TOAST_KEY = 'tuhui:pending-toast'
 
-const BASE_TOAST = {
-  position: 'middle' as const,
-  className: 'app-toast',
-  transition: 'van-fade' as const,
-  overlay: false,
-  closeOnClick: false,
-  closeOnClickOverlay: false,
-}
+export const toastVisible = ref(false)
+export const toastMessage = ref('')
+export const toastKind = ref<AppToastKind>('plain')
 
 let dismissTimer: ReturnType<typeof setTimeout> | undefined
 
@@ -24,79 +21,53 @@ function clearDismissTimer() {
   }
 }
 
-function openAppToast(options: Record<string, unknown>) {
-  closeToast()
+function hideToast() {
   clearDismissTimer()
+  toastVisible.value = false
+  toastMessage.value = ''
+}
 
-  const duration =
-    typeof options.duration === 'number' ? options.duration : 2000
-
-  showToast({
-    ...BASE_TOAST,
-    ...options,
-    duration,
-  })
+function showToastInternal(
+  message: string,
+  kind: AppToastKind,
+  duration: number,
+) {
+  clearDismissTimer()
+  toastKind.value = kind
+  toastMessage.value = message
+  toastVisible.value = true
 
   if (duration > 0) {
     dismissTimer = setTimeout(() => {
-      closeToast()
-      dismissTimer = undefined
+      hideToast()
     }, duration)
   }
 }
 
 export function showAppSuccessToast(message: string, options: AppToastOptions = {}) {
-  openAppToast({
-    message,
-    duration: options.duration ?? 1500,
-    className: 'app-toast app-toast--success',
-    icon: 'success',
-  })
+  showToastInternal(message, 'success', options.duration ?? 1200)
 }
 
 export function showAppFailToast(message: string, options: AppToastOptions = {}) {
-  openAppToast({
-    message,
-    duration: options.duration ?? 2000,
-    className: 'app-toast app-toast--fail',
-    icon: 'fail',
-  })
+  showToastInternal(message, 'fail', options.duration ?? 1800)
 }
 
 export function showAppInfoToast(message: string, options: AppToastOptions = {}) {
-  openAppToast({
-    message,
-    duration: options.duration ?? 2000,
-    className: 'app-toast app-toast--info',
-    icon: 'info-o',
-  })
+  showToastInternal(message, 'info', options.duration ?? 1600)
 }
 
 export function showAppLoadingToast(message = '请稍候…') {
-  openAppToast({
-    message,
-    type: 'loading',
-    duration: 0,
-    forbidClick: true,
-    className: 'app-toast app-toast--loading',
-  })
+  showToastInternal(message, 'loading', 0)
 }
 
 export function closeAppToast() {
-  clearDismissTimer()
-  closeToast()
+  hideToast()
 }
 
-/** 统一的信息提示，替代默认 van toast */
 export function showAppToast(message: string, options: AppToastOptions = {}) {
-  openAppToast({
-    message,
-    duration: options.duration ?? 2000,
-    className: 'app-toast app-toast--plain',
-  })
+  showToastInternal(message, 'plain', options.duration ?? 1600)
 }
 
-/** 跳转后再弹出提示，避免路由切换时 Toast 无法自动关闭 */
 export function queueAppSuccessToast(message: string) {
   sessionStorage.setItem(
     PENDING_TOAST_KEY,

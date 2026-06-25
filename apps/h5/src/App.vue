@@ -2,6 +2,7 @@
 import { computed, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import AppTabBar from './components/app-tab-bar.vue'
+import AppToastHost from './components/app-toast-host.vue'
 import CreateActionSheet from './components/create-action-sheet.vue'
 import PasscodeSheet from './components/passcode-sheet.vue'
 
@@ -29,6 +30,7 @@ function openPasscodeSheet() {
       @open-passcode="openPasscodeSheet"
     />
     <PasscodeSheet v-model:show="showPasscodeSheet" />
+    <AppToastHost />
 
     <AppTabBar
       v-if="showTabBar"

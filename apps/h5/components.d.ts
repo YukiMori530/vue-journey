@@ -13,6 +13,7 @@ declare module 'vue' {
   export interface GlobalComponents {
     AppHeader: typeof import('./src/components/app-header.vue')['default']
     AppTabBar: typeof import('./src/components/app-tab-bar.vue')['default']
+    AppToastHost: typeof import('./src/components/app-toast-host.vue')['default']
     ConfirmDialog: typeof import('./src/components/confirm-dialog.vue')['default']
     CoverImage: typeof import('./src/components/cover-image.vue')['default']
     CreateActionSheet: typeof import('./src/components/create-action-sheet.vue')['default']

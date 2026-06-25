@@ -306,10 +306,12 @@ onUnmounted(() => {
 
 <style scoped>
 .gen-page {
-  position: relative;
+  display: flex;
+  flex-direction: column;
   height: 100vh;
+  height: 100dvh;
   overflow: hidden;
-  background: #eef2f6;
+  background: #fff;
 }
 
 .gen-header {
@@ -334,29 +336,30 @@ onUnmounted(() => {
 }
 
 .gen-map-wrap {
-  position: absolute;
-  inset: 0 0 42%;
+  flex: 1 1 0;
+  min-height: 38%;
+  position: relative;
 }
 
 .gen-sheet {
-  position: absolute;
-  right: 0;
-  bottom: 0;
-  left: 0;
+  flex: 0 0 auto;
   z-index: 2;
   display: flex;
   flex-direction: column;
-  max-height: 58vh;
-  padding: 8px 16px calc(16px + env(safe-area-inset-bottom));
-  border-radius: 24px 24px 0 0;
+  max-height: min(62dvh, calc(100dvh - 180px));
+  margin-top: -12px;
+  padding: 10px 16px calc(12px + env(safe-area-inset-bottom));
+  border-radius: 20px 20px 0 0;
   background: #fff;
-  box-shadow: 0 -8px 32px rgb(0 0 0 / 8%);
+  box-shadow: 0 -6px 24px rgb(0 0 0 / 8%);
+  overflow: hidden;
 }
 
 .gen-sheet__handle {
+  flex-shrink: 0;
   width: 36px;
   height: 4px;
-  margin: 0 auto 12px;
+  margin: 0 auto 10px;
   border-radius: 999px;
   background: #dcdee0;
 }
@@ -393,9 +396,9 @@ onUnmounted(() => {
 }
 
 .gen-logs {
-  flex: 0 1 auto;
-  max-height: 120px;
-  margin-bottom: 10px;
+  flex-shrink: 0;
+  max-height: min(168px, 30vh);
+  margin-bottom: 8px;
   overflow-y: auto;
 }
 
@@ -428,9 +431,10 @@ onUnmounted(() => {
 }
 
 .gen-preview {
-  flex: 1;
+  flex: 1 1 auto;
   min-height: 0;
-  margin-bottom: 10px;
+  max-height: min(240px, 36vh);
+  margin-bottom: 8px;
   overflow-y: auto;
 }
 
@@ -472,10 +476,12 @@ onUnmounted(() => {
 }
 
 .gen-status {
+  flex-shrink: 0;
   display: flex;
   gap: 8px;
   align-items: center;
-  margin-bottom: 12px;
+  margin-top: 4px;
+  margin-bottom: 10px;
   font-size: 13px;
   color: #646566;
 }
@@ -523,6 +529,7 @@ onUnmounted(() => {
 }
 
 .gen-cancel {
+  flex-shrink: 0;
   display: flex;
   gap: 8px;
   align-items: center;
