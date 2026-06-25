@@ -37,6 +37,9 @@ const STOP_CITY_HINTS: Array<{ key: string; city: string }> = [
   { key: '崇礼', city: '张家口' },
   { key: '张家口', city: '张家口' },
   { key: '唐山', city: '唐山' },
+  { key: '后海村', city: '三亚' },
+  { key: '蜈支洲', city: '三亚' },
+  { key: '海棠湾', city: '三亚' },
 ].sort((a, b) => b.key.length - a.key.length)
 
 export function isWideAreaDestination(destination: string): boolean {
@@ -210,7 +213,9 @@ const CITY_LANDMARKS: Record<string, Record<string, GeoPoint>> = {
     亚龙湾热带天堂森林公园: { lng: 109.64, lat: 18.256 },
     天涯海角: { lng: 109.35, lat: 18.3 },
     蜈支洲岛: { lng: 109.766, lat: 18.312 },
-    后海村: { lng: 109.742, lat: 18.318 },
+    后海村: { lng: 109.73, lat: 18.272 },
+    滕海渔村: { lng: 109.73, lat: 18.272 },
+    藤海社区: { lng: 109.73, lat: 18.272 },
     南山文化旅游区: { lng: 109.208, lat: 18.298 },
     南山寺: { lng: 109.208, lat: 18.298 },
     鹿回头: { lng: 109.501, lat: 18.225 },
@@ -308,7 +313,7 @@ export function landmarkSearchAliases(name: string, city?: string): string[] {
     aliases.push(stripped.replace(/公园.*$/, '').trim())
   }
   if (/后海/.test(stripped) && cityName === '三亚') {
-    aliases.push('海棠湾后海村', '三亚后海村')
+    aliases.push('海棠湾后海村', '三亚后海村', '滕海渔村', '藤海社区')
   }
 
   return [...new Set(aliases.filter((item) => item.length >= 2))]
@@ -355,7 +360,21 @@ export function shouldPreferLandmarkOverGeocode(
   if (isIslandExcursion(stopName)) {
     return false
   }
-  return distanceKm(geocoded, landmark) > 3
+  if (distanceKm(geocoded, landmark) > 3) {
+    return true
+  }
+  // 后海村易误匹配到蜈支洲岛附近海域
+  if (/后海/.test(primaryPlaceName(stopName))) {
+    const islandAnchor = lookupKnownLandmark('蜈支洲岛', '三亚')
+    if (
+      islandAnchor &&
+      distanceKm(geocoded, islandAnchor) < 5 &&
+      distanceKm(landmark, islandAnchor) >= 5
+    ) {
+      return true
+    }
+  }
+  return false
 }
 
 export function isShuttlePoi(poiName: string): boolean {
@@ -514,6 +533,18 @@ export function poiNameScore(poiName: string, keyword: string): number {
     score -= 50
   }
 
+  if (/后海/.test(keyword)) {
+    if (/海棠|藤海|滕海|林旺|三亚/.test(normalizedPoi)) {
+      score += 15
+    }
+    if (/北京|什刹|西城|东城/.test(normalizedPoi)) {
+      score -= 40
+    }
+    if (/蜈支洲|码头/.test(normalizedPoi) && !/后海|藤海|滕海/.test(normalizedPoi)) {
+      score -= 35
+    }
+  }
+
   if (isRemoteExcursion(keyword)) {
     if (/景区|风景名胜|世界遗产|国家公园/.test(normalizedPoi)) {
       score += 10
@@ -625,9 +656,11 @@ export function buildPlaceQueries(name: string, city: string): string[] {
   }
   if (/后海/.test(stripped) && cityName === '三亚') {
     queries.push(
-      `${cityName}后海村`,
-      '海棠湾后海村',
       `${cityName}海棠湾后海村`,
+      '海棠湾镇后海村',
+      '林旺镇后海村',
+      '滕海渔村',
+      `${cityName}后海村`,
       '后海渔村',
     )
   }
