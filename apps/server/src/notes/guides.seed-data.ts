@@ -12,7 +12,9 @@ export interface TravelGuideSeed {
   keywords: string[]
 }
 
-export const travelGuideSeeds: TravelGuideSeed[] = [
+import { nationwideGuideSeeds } from './guides.seed-nationwide'
+
+const baseGuideSeeds: TravelGuideSeed[] = [
   {
     id: 'guide-beijing-culture-3d',
     title: '北京3日人文经典｜故宫颐和园不绕路',
@@ -941,4 +943,9 @@ export const travelGuideSeeds: TravelGuideSeed[] = [
 - 大福村
 - 龙凤头海滨浴场`,
   },
+]
+
+export const travelGuideSeeds: TravelGuideSeed[] = [
+  ...baseGuideSeeds,
+  ...nationwideGuideSeeds,
 ]
