@@ -84,7 +84,7 @@ export function resolveStopGeoContext(
 }
 
 const REMOTE_EXCURSION_RE =
-  /八达岭|慕田峪|居庸关|司马台|金山岭|古北口|十渡|明十三陵|十三陵|潭柘寺|红螺寺|青龙峡|古北水镇|雁栖湖|云蒙山|雾灵山|兵马俑|华清宫|乾陵|法门寺|阳关|玉门关|雅丹|魔鬼城|玉龙雪山|蓝月谷|泸沽湖|天门山|天子山|袁家界|武陵源|张家界国家森林公园|阳朔|十里画廊|蜈支洲岛|天涯海角|南山文化旅游区|养马岛|蓬莱阁|华山|泰山|黄山|峨眉山|青城山|都江堰|千岛湖|赛里木湖|喀纳斯|禾木|那拉提|抚仙湖|抚仙|洱海双廊|双廊古镇|束河古镇|白沙古镇/
+  /八达岭|慕田峪|居庸关|司马台|金山岭|古北口|十渡|明十三陵|十三陵|潭柘寺|红螺寺|青龙峡|古北水镇|雁栖湖|云蒙山|雾灵山|兵马俑|华清宫|乾陵|法门寺|阳关|玉门关|雅丹|魔鬼城|玉龙雪山|蓝月谷|泸沽湖|天门山|天子山|袁家界|武陵源|张家界国家森林公园|阳朔|十里画廊|蜈支洲岛|天涯海角|南山文化旅游区|后海村|亚龙湾|海棠湾|西岛|大东海|鹿回头|养马岛|蓬莱阁|华山|泰山|黄山|峨眉山|青城山|都江堰|千岛湖|赛里木湖|喀纳斯|禾木|那拉提|抚仙湖|抚仙|洱海双廊|双廊古镇|束河古镇|白沙古镇/
 
 const POI_SHUTTLE_RE = /直通车|专线|乘车点|上车点|发车点|旅游集散|集散中心/
 
@@ -204,6 +204,21 @@ const CITY_LANDMARKS: Record<string, Record<string, GeoPoint>> = {
     大研古城: { lng: 100.234, lat: 26.872 },
     玉龙雪山: { lng: 100.258, lat: 27.098 },
   },
+  三亚: {
+    亚龙湾: { lng: 109.645, lat: 18.233 },
+    亚龙湾海滩: { lng: 109.645, lat: 18.233 },
+    亚龙湾热带天堂森林公园: { lng: 109.64, lat: 18.256 },
+    天涯海角: { lng: 109.35, lat: 18.3 },
+    蜈支洲岛: { lng: 109.766, lat: 18.312 },
+    后海村: { lng: 109.742, lat: 18.318 },
+    南山文化旅游区: { lng: 109.214, lat: 18.172 },
+    南山寺: { lng: 109.214, lat: 18.172 },
+    鹿回头: { lng: 109.501, lat: 18.225 },
+    鹿回头公园: { lng: 109.501, lat: 18.225 },
+    第一市场: { lng: 109.508, lat: 18.247 },
+    大东海: { lng: 109.525, lat: 18.222 },
+    西岛: { lng: 109.366, lat: 18.225 },
+  },
 }
 
 export function distanceKm(a: GeoPoint, b: GeoPoint): number {
@@ -291,6 +306,9 @@ export function landmarkSearchAliases(name: string, city?: string): string[] {
   }
   if (/湿地/.test(stripped)) {
     aliases.push(stripped.replace(/公园.*$/, '').trim())
+  }
+  if (/后海/.test(stripped) && cityName === '三亚') {
+    aliases.push('海棠湾后海村', '三亚后海村')
   }
 
   return [...new Set(aliases.filter((item) => item.length >= 2))]
@@ -561,6 +579,14 @@ export function buildPlaceQueries(name: string, city: string): string[] {
   if (/海鲜市场/.test(stripped)) {
     queries.push(`${cityName}海鲜市场`, '海鲜市场', stripped)
   }
+  if (/后海/.test(stripped) && cityName === '三亚') {
+    queries.push(
+      `${cityName}后海村`,
+      '海棠湾后海村',
+      `${cityName}海棠湾后海村`,
+      '后海渔村',
+    )
+  }
 
   if (/长城|八达岭|慕田峪|居庸关|兵马俑|雅丹|玉龙雪山|阳朔/.test(stripped)) {
     queries.push(`${stripped}景区`, `${stripped}风景名胜区`)
@@ -584,6 +610,7 @@ const CITY_DEFAULT_CENTER: Record<string, GeoPoint> = {
   承德: { lng: 117.939, lat: 40.976 },
   秦皇岛: { lng: 119.6, lat: 39.935 },
   南昌: { lng: 115.857, lat: 28.682 },
+  三亚: { lng: 109.512, lat: 18.252 },
 }
 
 export function defaultCityCenter(city: string): GeoPoint {
