@@ -1,11 +1,12 @@
 import { loadAMap } from './amap'
-import { distanceKm } from './geo-distance'
+import { distanceKm, isIslandExcursion } from './geo-distance'
 import { uniqueRouteWaypoints } from './route-order'
 import type { TripStop } from '../types/trip'
 
 interface RoutePoint {
   lng: number
   lat: number
+  name?: string
 }
 
 export interface DriveSegmentResult {
@@ -34,6 +35,21 @@ function straightPath(from: RoutePoint, to: RoutePoint): [number, number][] {
 
 function estimateDriveMinutes(km: number): number {
   return Math.max(3, Math.round((km / 28) * 60))
+}
+
+/** 海岛/渡轮段用直线距离，按约 20km/h 估算（含等船） */
+function estimateIslandTransitMinutes(km: number): number {
+  return Math.max(15, Math.round((km / 20) * 60))
+}
+
+export function shouldUseStraightLineRoute(from: RoutePoint, to: RoutePoint): boolean {
+  if (from.name && isIslandExcursion(from.name)) {
+    return true
+  }
+  if (to.name && isIslandExcursion(to.name)) {
+    return true
+  }
+  return false
 }
 
 function pathFromDrivingRoute(route: {
@@ -143,6 +159,14 @@ export async function fetchRouteSegment(
     }
   }
 
+  if (shouldUseStraightLineRoute(from, to)) {
+    return {
+      path: straightPath(from, to),
+      distanceKm: Number(km.toFixed(1)),
+      driveMinutes: estimateIslandTransitMinutes(km),
+    }
+  }
+
   if (km >= DRIVING_THRESHOLD_KM) {
     const driven = await requestDrivingSegment(from, to)
     if (driven) {
@@ -160,7 +184,7 @@ export async function fetchRouteSegment(
 export function buildStraightRouteSegments(
   stops: RoutePoint[],
 ): [number, number][][] {
-  const waypoints = uniqueRouteWaypoints(stops)
+  const waypoints = uniqueRouteWaypoints(stops) as RoutePoint[]
   if (waypoints.length <= 1) {
     return []
   }
@@ -183,7 +207,7 @@ export async function buildRouteSegments(
   stops: RoutePoint[],
   _city?: string,
 ): Promise<[number, number][][]> {
-  const waypoints = uniqueRouteWaypoints(stops)
+  const waypoints = uniqueRouteWaypoints(stops) as RoutePoint[]
   if (waypoints.length <= 1) {
     return []
   }
@@ -221,9 +245,12 @@ export async function enrichStopsDriveMetrics(stops: TripStop[]): Promise<TripSt
       continue
     }
 
-    const from = { lng: prev.lng, lat: prev.lat }
-    const to = { lng: curr.lng, lat: curr.lat }
-    if (distanceKm(from, to) < DRIVING_THRESHOLD_KM) {
+    const from = { lng: prev.lng, lat: prev.lat, name: prev.name }
+    const to = { lng: curr.lng, lat: curr.lat, name: curr.name }
+    if (
+      distanceKm(from, to) < DRIVING_THRESHOLD_KM &&
+      !shouldUseStraightLineRoute(from, to)
+    ) {
       continue
     }
 

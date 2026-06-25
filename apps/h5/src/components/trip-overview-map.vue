@@ -126,7 +126,11 @@ async function renderMap() {
       }
 
       const segments = await buildRouteSegments(
-        located as Array<{ lng: number; lat: number }>,
+        located.map((stop) => ({
+          lng: stop.lng!,
+          lat: stop.lat!,
+          name: stop.name,
+        })),
         props.destination,
       )
       if (seq !== renderSeq) {

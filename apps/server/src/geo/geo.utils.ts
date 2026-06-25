@@ -236,8 +236,8 @@ const CITY_LANDMARKS: Record<string, Record<string, GeoPoint>> = {
     天涯海角: { lng: 109.35, lat: 18.3 },
     蜈支洲岛: { lng: 109.766, lat: 18.312 },
     后海村: { lng: 109.742, lat: 18.318 },
-    南山文化旅游区: { lng: 109.214, lat: 18.172 },
-    南山寺: { lng: 109.214, lat: 18.172 },
+    南山文化旅游区: { lng: 109.208, lat: 18.298 },
+    南山寺: { lng: 109.208, lat: 18.298 },
     鹿回头: { lng: 109.501, lat: 18.225 },
     鹿回头公园: { lng: 109.501, lat: 18.225 },
     第一市场: { lng: 109.508, lat: 18.247 },
@@ -360,6 +360,46 @@ export function landmarkSearchAliases(name: string, city?: string): string[] {
 
 export function isRemoteExcursion(name: string): boolean {
   return REMOTE_EXCURSION_RE.test(primaryPlaceName(name));
+}
+
+/** 需乘船/渡轮到达的海岛类景点（路线用直线，不走驾车规划） */
+const ISLAND_STOP_RE =
+  /蜈支洲|西岛|分界洲|涠洲|崇明|长岛|鼓浪屿|普陀|东极|南麂|海陵|刘公|大陈|东山岛|南澳|金门|平潭|嵊泗|朱家尖|东澳|外伶仃|桂山岛|桃花岛|养马岛|大嵛山|小嵛山|南长山|北长山/;
+
+export function isIslandExcursion(name: string): boolean {
+  const primary = primaryPlaceName(name);
+  if (/半岛/.test(primary)) {
+    return false;
+  }
+  if (ISLAND_STOP_RE.test(primary)) {
+    return true;
+  }
+  if (/岛/.test(primary) && !/(群岛|酒店|饭店|餐厅|城市)/.test(primary)) {
+    return true;
+  }
+  return false;
+}
+
+/** 高德常误匹配的离岸 POI（海上观音、客运码头等） */
+export function isOffshorePoi(poiName: string): boolean {
+  const normalized = poiName.replace(/\s/g, '');
+  if (/上海/.test(normalized)) {
+    return false;
+  }
+  return /海上观音|观音岛|登船|客运码头|游艇码头|游船码头|渡口|渡轮|乘船点|码头$|客运$|登岛|出海口/.test(
+    normalized,
+  );
+}
+
+export function shouldPreferLandmarkOverGeocode(
+  stopName: string,
+  geocoded: GeoPoint,
+  landmark: GeoPoint,
+): boolean {
+  if (isIslandExcursion(stopName)) {
+    return false;
+  }
+  return distanceKm(geocoded, landmark) > 3;
 }
 
 export function isShuttlePoi(poiName: string): boolean {
@@ -514,6 +554,10 @@ export function poiNameScore(poiName: string, keyword: string): number {
 
   if (isShuttlePoi(poiName) || isNonAttractionPoi(poiName)) {
     score -= 30;
+  }
+
+  if (isOffshorePoi(poiName) && !isIslandExcursion(keyword)) {
+    score -= 50;
   }
 
   if (isRemoteExcursion(keyword)) {

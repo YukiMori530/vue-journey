@@ -86,7 +86,14 @@ async function renderMap() {
       if (sorted.length < 2) {
         continue
       }
-      const segments = await buildRouteSegments(sorted, props.destination)
+      const segments = await buildRouteSegments(
+        sorted.map((stop) => ({
+          lng: stop.lng,
+          lat: stop.lat,
+          name: stop.name,
+        })),
+        props.destination,
+      )
       if (seq !== renderSeq) {
         clearMapOverlays()
         return

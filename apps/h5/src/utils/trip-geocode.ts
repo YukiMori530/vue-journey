@@ -18,6 +18,7 @@ import {
   resolveStopGeoContext,
   shouldAddToUrbanCluster,
   shouldBindToCluster,
+  shouldPreferLandmarkOverGeocode,
 } from './geo-distance'
 import type { TripStop } from '../types/trip'
 import {
@@ -143,6 +144,16 @@ async function resolveSingleStop(
       break
     }
     point = null
+  }
+
+  if (point) {
+    const landmark = lookupKnownLandmark(stop.name, destination)
+    if (
+      landmark &&
+      shouldPreferLandmarkOverGeocode(stop.name, point, landmark)
+    ) {
+      point = landmark
+    }
   }
 
   return point ? { ...stop, ...point } : stop

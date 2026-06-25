@@ -5,6 +5,8 @@ import {
   isCoordNearCluster,
   isCoordPlausibleForStop,
   isNonAttractionPoi,
+  isOffshorePoi,
+  isIslandExcursion,
   MIN_POI_NAME_SCORE,
   poiNameScore,
   shouldBindToCluster,
@@ -67,6 +69,7 @@ function pickBestJsPoi(
     pois
       .filter((poi) => poi.location)
       .filter((poi) => !isNonAttractionPoi(poi.name))
+      .filter((poi) => !(isOffshorePoi(poi.name) && !isIslandExcursion(keyword)))
       .map((poi) => ({
         point: { lng: poi.location.lng, lat: poi.location.lat },
         score: poiNameScore(poi.name, keyword),

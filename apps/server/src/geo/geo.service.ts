@@ -11,6 +11,8 @@ import {
   isCoordPlausibleForStop,
   isRemoteExcursion,
   isNonAttractionPoi,
+  isOffshorePoi,
+  isIslandExcursion,
   isWideAreaDestination,
   isWithinDestination,
   lookupKnownLandmark,
@@ -20,6 +22,7 @@ import {
   resolveStopGeoContext,
   shouldAddToUrbanCluster,
   shouldBindToCluster,
+  shouldPreferLandmarkOverGeocode,
   type GeoPoint,
 } from './geo.utils';
 import { orderStopsByZones } from './route-order';
@@ -182,6 +185,10 @@ export class GeoService {
     const rank = (useCluster: boolean) =>
       pool
         .filter(({ poi }) => !isNonAttractionPoi(poi.name))
+        .filter(
+          ({ poi }) =>
+            !(isOffshorePoi(poi.name) && !isIslandExcursion(keyword)),
+        )
         .filter(({ point }) =>
           anchor ? isCoordPlausibleForStop(point, anchor, keyword) : true,
         )
@@ -396,6 +403,13 @@ export class GeoService {
       isWithinDestination(searched, cityCenter, name, destination) &&
       isCoordPlausibleForStop(searched, anchor, name)
     ) {
+      const landmark = lookupKnownLandmark(name, destination);
+      if (
+        landmark &&
+        shouldPreferLandmarkOverGeocode(name, searched, landmark)
+      ) {
+        return landmark;
+      }
       return searched;
     }
 
