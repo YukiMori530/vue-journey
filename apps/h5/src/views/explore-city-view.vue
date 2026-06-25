@@ -2,9 +2,10 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { showToast } from 'vant'
-import CoverImage from '../components/cover-image.vue'
+import PlaceCoverImage from '../components/place-cover-image.vue'
 import { getCityById } from '../data/explore-pois'
 import { fetchCityGuides, type XhsNote } from '../api/notes'
+import { extractGuideCoverPlace } from '../utils/guide-cover'
 import { ApiError } from '../api/client'
 
 const route = useRoute()
@@ -14,7 +15,17 @@ const cityId = computed(() => String(route.params.cityId ?? ''))
 const exploreCity = computed(() => getCityById(cityId.value))
 const guides = ref<XhsNote[]>([])
 const loading = ref(true)
-const heroCover = computed(() => guides.value[0]?.cover ?? '/covers/default.jpg')
+const heroCoverPlace = computed(() => {
+  const first = guides.value[0]
+  if (!first) {
+    return exploreCity.value.name.replace(/(市|县|区)$/, '')
+  }
+  return extractGuideCoverPlace(first.content, first.destination)
+})
+
+const heroDestination = computed(
+  () => guides.value[0]?.destination ?? exploreCity.value.name.replace(/(市|县|区)$/, ''),
+)
 
 const cityName = computed(() => {
   const fromGuide = guides.value[0]?.destination
@@ -67,7 +78,11 @@ function openGuide(note: XhsNote) {
 
     <template v-else>
       <div class="hero">
-        <CoverImage :src="heroCover" :alt="cityName" img-class="hero-cover" />
+        <PlaceCoverImage
+          class="hero-cover"
+          :name="heroCoverPlace"
+          :destination="heroDestination"
+        />
         <div class="hero-mask">
           <p class="hero-city">{{ cityName }}</p>
           <p class="hero-intro">{{ intro }}</p>
@@ -85,7 +100,11 @@ function openGuide(note: XhsNote) {
           class="guide-card"
           @click="openGuide(note)"
         >
-          <CoverImage :src="note.cover" :alt="note.title" img-class="guide-cover" />
+          <PlaceCoverImage
+            class="guide-cover"
+            :name="extractGuideCoverPlace(note.content, note.destination)"
+            :destination="note.destination"
+          />
           <div class="guide-body">
             <h3>{{ note.title }}</h3>
             <p>{{ note.snippet }}</p>
@@ -152,7 +171,6 @@ function openGuide(note: XhsNote) {
 .hero-cover {
   width: 100%;
   height: 100%;
-  object-fit: cover;
 }
 
 .hero-mask {
@@ -217,10 +235,11 @@ function openGuide(note: XhsNote) {
 }
 
 .guide-cover {
+  flex-shrink: 0;
   width: 88px;
   height: 88px;
   border-radius: 12px;
-  object-fit: cover;
+  overflow: hidden;
 }
 
 .guide-body {

@@ -18,6 +18,7 @@ export interface ExploreCollectionItem {
   id: string
   title: string
   cover: string
+  coverPlace: string
   destination: string
 }
 
@@ -25,6 +26,7 @@ export interface ExploreHotCity {
   id: string
   name: string
   cover: string
+  coverPlace: string
   planCount: string
   description: string
   rankTag?: string

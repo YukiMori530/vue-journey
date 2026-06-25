@@ -11,6 +11,53 @@ function tokenize(text: string): string[] {
     .filter((item) => item.length >= 1);
 }
 
+const CITY_LANDMARKS: Record<string, string> = {
+  三亚: '亚龙湾',
+  丽江: '丽江古城',
+  北京: '故宫博物院',
+  南京: '中山陵',
+  上海: '外滩',
+  南昌: '滕王阁',
+  成都: '宽窄巷子',
+  昆明: '翠湖公园',
+  福州: '三坊七巷',
+  平潭: '坛南湾',
+  烟台: '蓬莱阁',
+  敦煌: '莫高窟',
+  天津: '天津之眼',
+  保定: '直隶总督署',
+};
+
+function normalizeDestination(destination: string): string {
+  return destination.replace(/(市|县|区|省)$/, '').trim();
+}
+
+function extractFirstPlace(content: string): string | null {
+  const lines = content
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  for (const line of lines) {
+    if (/^第\s*[0-9一二三四五六七八九十]+\s*天/.test(line)) {
+      continue;
+    }
+    const place = line.replace(/^[\s\-·•*\d+.、)）]+/, '').trim();
+    if (place.length >= 2 && !/^第/.test(place)) {
+      return place;
+    }
+  }
+  return null;
+}
+
+function resolveCoverPlace(note: XhsNote): string {
+  return (
+    extractFirstPlace(note.content) ??
+    CITY_LANDMARKS[normalizeDestination(note.destination)] ??
+    normalizeDestination(note.destination)
+  );
+}
+
 function scoreNote(note: XhsNote, tokens: string[]): number {
   const haystack = [
     note.title,
@@ -175,6 +222,9 @@ export class NotesService {
       南昌: 'nanchang',
       福州: 'fuzhou',
       平潭: 'pingtan',
+      三亚: 'sanya',
+      丽江: 'lijiang',
+      南京: 'nanjing',
     };
     const key = destination.replace(/(市|县|区|省)$/, '');
     return map[key] ?? key.toLowerCase().replace(/\s+/g, '-');
@@ -186,6 +236,7 @@ export class NotesService {
       id: note.id,
       title: note.title,
       cover: note.cover,
+      coverPlace: resolveCoverPlace(note),
       destination: note.destination,
     }));
 
@@ -195,6 +246,7 @@ export class NotesService {
         id: string
         name: string
         cover: string
+        coverPlace: string
         planCount: string
         description: string
         rankTag?: string
@@ -203,7 +255,7 @@ export class NotesService {
     >();
 
     notes.forEach((note, index) => {
-      const key = note.destination.replace(/(市|县|区)$/, '') || note.destination;
+      const key = normalizeDestination(note.destination) || note.destination;
       const existing = cityMap.get(key);
       if (existing) {
         existing.guideCount += 1;
@@ -213,6 +265,7 @@ export class NotesService {
         id: this.citySlug(key),
         name: note.destination.includes('市') ? note.destination : `${note.destination}市`,
         cover: note.cover,
+        coverPlace: resolveCoverPlace(note),
         planCount: note.likes ? `${note.likes} 人收藏攻略` : `${Math.max(3, note.days * 2)} 篇攻略`,
         description: note.snippet,
         rankTag: index < 2 ? `中国热度 top${index + 2}` : undefined,

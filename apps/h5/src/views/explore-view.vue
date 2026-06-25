@@ -2,7 +2,7 @@
 import { computed, onMounted, onUnmounted, ref, shallowRef } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { showToast } from 'vant'
-import CoverImage from '../components/cover-image.vue'
+import PlaceCoverImage from '../components/place-cover-image.vue'
 import { exploreCities, getCityById, type ExplorePoi, type PoiCategory } from '../data/explore-pois'
 import { mapStories, type MapStory } from '../data/explore-discover'
 import { fetchExploreFeed, type ExploreCollectionItem, type ExploreHotCity } from '../api/notes'
@@ -423,7 +423,11 @@ onUnmounted(() => {
             class="collection-card"
             @click="openCollection(item)"
           >
-            <CoverImage :src="item.cover" :alt="item.title" img-class="collection-cover" />
+            <PlaceCoverImage
+              class="collection-cover"
+              :name="item.coverPlace"
+              :destination="item.destination"
+            />
             <p class="collection-title">{{ item.title }}</p>
           </button>
         </div>
@@ -436,7 +440,11 @@ onUnmounted(() => {
             class="hot-city-item"
             @click="openHotCity(city)"
           >
-            <CoverImage :src="city.cover" :alt="city.name" img-class="hot-city-cover" />
+            <PlaceCoverImage
+              class="hot-city-cover"
+              :name="city.coverPlace"
+              :destination="city.name"
+            />
             <div class="hot-city-info">
               <div class="hot-city-head">
                 <h3>{{ city.name }}</h3>
@@ -726,7 +734,7 @@ onUnmounted(() => {
   width: 148px;
   height: 112px;
   border-radius: 14px;
-  object-fit: cover;
+  overflow: hidden;
 }
 
 .collection-title {
@@ -767,7 +775,7 @@ onUnmounted(() => {
   width: 72px;
   height: 72px;
   border-radius: 12px;
-  object-fit: cover;
+  overflow: hidden;
 }
 
 .hot-city-info {
