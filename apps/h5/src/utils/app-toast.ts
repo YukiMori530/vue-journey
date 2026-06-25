@@ -7,11 +7,19 @@ type AppToastOptions = {
 const BASE_TOAST = {
   position: 'middle' as const,
   className: 'app-toast',
+  transition: 'van-fade' as const,
+}
+
+function openAppToast(options: Record<string, unknown>) {
+  closeToast()
+  showToast({
+    ...BASE_TOAST,
+    ...options,
+  })
 }
 
 export function showAppSuccessToast(message: string, options: AppToastOptions = {}) {
-  showToast({
-    ...BASE_TOAST,
+  openAppToast({
     message,
     duration: options.duration ?? 2200,
     className: 'app-toast app-toast--success',
@@ -20,8 +28,7 @@ export function showAppSuccessToast(message: string, options: AppToastOptions = 
 }
 
 export function showAppFailToast(message: string, options: AppToastOptions = {}) {
-  showToast({
-    ...BASE_TOAST,
+  openAppToast({
     message,
     duration: options.duration ?? 2400,
     className: 'app-toast app-toast--fail',
@@ -30,8 +37,7 @@ export function showAppFailToast(message: string, options: AppToastOptions = {})
 }
 
 export function showAppInfoToast(message: string, options: AppToastOptions = {}) {
-  showToast({
-    ...BASE_TOAST,
+  openAppToast({
     message,
     duration: options.duration ?? 2000,
     className: 'app-toast app-toast--info',
@@ -40,8 +46,7 @@ export function showAppInfoToast(message: string, options: AppToastOptions = {})
 }
 
 export function showAppLoadingToast(message = '请稍候…') {
-  showToast({
-    ...BASE_TOAST,
+  openAppToast({
     message,
     type: 'loading',
     duration: 0,
@@ -56,8 +61,7 @@ export function closeAppToast() {
 
 /** 统一的信息提示，替代默认 van toast */
 export function showAppToast(message: string, options: AppToastOptions = {}) {
-  showToast({
-    ...BASE_TOAST,
+  openAppToast({
     message,
     duration: options.duration ?? 2000,
     className: 'app-toast app-toast--plain',

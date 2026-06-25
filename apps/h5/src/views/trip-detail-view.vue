@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, nextTick, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { showToast } from 'vant'
 import ConfirmDialog from '../components/confirm-dialog.vue'
@@ -197,8 +197,9 @@ async function confirmDelete() {
   try {
     await tripStore.removeTrip(trip.value.id)
     showDeleteDialog.value = false
-    showAppSuccessToast(`「${title}」已移除`)
     await router.replace({ path: '/' })
+    await nextTick()
+    showAppSuccessToast(`「${title}」已移除`)
   } catch (error) {
     if (error instanceof ApiError) {
       showAppFailToast(error.message)
