@@ -39,6 +39,12 @@ const STOP_CITY_HINTS: Array<{ key: string; city: string }> = [
   { key: '后海村', city: '三亚' },
   { key: '蜈支洲', city: '三亚' },
   { key: '海棠湾', city: '三亚' },
+  { key: '坛南湾', city: '平潭' },
+  { key: '北港村', city: '平潭' },
+  { key: '长江澳', city: '平潭' },
+  { key: '猴研岛', city: '平潭' },
+  { key: '平潭岛', city: '平潭' },
+  { key: '平潭', city: '平潭' },
 ].sort((a, b) => b.key.length - a.key.length);
 
 export function isWideAreaDestination(destination: string): boolean {
@@ -83,6 +89,7 @@ const CITY_DEFAULT_CENTER: Record<string, GeoPoint> = {
   秦皇岛: { lng: 119.6, lat: 39.935 },
   南昌: { lng: 115.857, lat: 28.682 },
   三亚: { lng: 109.512, lat: 18.252 },
+  平潭: { lng: 119.79, lat: 25.50 },
 };
 
 export function defaultCityCenter(city: string): GeoPoint {
@@ -231,6 +238,21 @@ const CITY_LANDMARKS: Record<string, Record<string, GeoPoint>> = {
   丽江: {
     大研古城: { lng: 100.234, lat: 26.872 },
     玉龙雪山: { lng: 100.258, lat: 27.098 },
+  },
+  平潭: {
+    坛南湾: { lng: 119.898, lat: 25.438 },
+    龙王头沙滩: { lng: 119.789, lat: 25.501 },
+    龙凤头海滨浴场: { lng: 119.789, lat: 25.501 },
+    海坛古城: { lng: 119.778, lat: 25.472 },
+    北港村: { lng: 119.945, lat: 25.592 },
+    长江澳风力田: { lng: 119.967, lat: 25.612 },
+    猴研岛: { lng: 119.872, lat: 25.458 },
+    石牌洋景区: { lng: 119.845, lat: 25.512 },
+    象鼻湾: { lng: 119.756, lat: 25.468 },
+    镜沙: { lng: 119.934, lat: 25.578 },
+    澳前镇: { lng: 119.812, lat: 25.448 },
+    '68海里景区': { lng: 119.868, lat: 25.452 },
+    流水镇: { lng: 119.728, lat: 25.498 },
   },
   三亚: {
     亚龙湾: { lng: 109.645, lat: 18.233 },

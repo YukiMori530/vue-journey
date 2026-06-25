@@ -894,4 +894,51 @@ export const travelGuideSeeds: TravelGuideSeed[] = [
 - 鹅岭二厂
 - 南山一棵树`,
   },
+  {
+    id: 'guide-pingtan-blue-tears-3d',
+    title: '平潭岛3日环岛追泪｜蓝眼泪与风车海',
+    author: '海岛追光',
+    cover: '/covers/default.jpg',
+    destination: '平潭',
+    days: 3,
+    category: '滨海',
+    likes: '3.1w',
+    snippet: '坛南湾追泪 + 长江澳风车田 + 北港石头厝，经典环岛线',
+    keywords: ['平潭', '平潭岛', '蓝眼泪', '环岛', '坛南湾'],
+    content: `第1天
+- 龙王头沙滩
+- 海坛古城
+- 坛南湾
+
+第2天
+- 北港村
+- 长江澳风力田
+- 镜沙
+
+第3天
+- 猴研岛
+- 石牌洋景区
+- 象鼻湾`,
+  },
+  {
+    id: 'guide-pingtan-seafood-2d',
+    title: '平潭2日海鲜与渔村慢游',
+    author: '闽东味道',
+    cover: '/covers/default.jpg',
+    destination: '平潭',
+    days: 2,
+    category: '美食',
+    likes: '1.8w',
+    snippet: '流水镇海鲜大排档 + 澳前渔村，适合第一次来平潭',
+    keywords: ['平潭', '平潭岛', '海鲜', '渔村', '流水镇'],
+    content: `第1天
+- 澳前镇
+- 68海里景区
+- 流水镇海鲜市场
+
+第2天
+- 塘屿岛
+- 大福村
+- 龙凤头海滨浴场`,
+  },
 ]

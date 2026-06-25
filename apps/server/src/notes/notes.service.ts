@@ -2,6 +2,11 @@ import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { travelGuideSeeds } from './guides.seed-data';
 import type { XhsNote } from './notes.data';
+import {
+  destinationAliases,
+  normalizeSearchDestination,
+  noteMatchesDestination,
+} from './destination.utils';
 
 function tokenize(text: string): string[] {
   return text
@@ -86,21 +91,45 @@ function rankNotes(
 ): XhsNote[] {
   const limit = opts?.limit ?? 6;
   const q = query.trim().toLowerCase();
+  const destination = opts?.destination
+    ? normalizeSearchDestination(opts.destination)
+    : '';
+
+  let pool = notes;
+  if (destination) {
+    const matched = notes.filter((note) => noteMatchesDestination(note, destination));
+    if (matched.length) {
+      pool = matched;
+    } else {
+      return [];
+    }
+  }
+
   if (!q) {
-    return notes.slice(0, limit);
+    return pool.slice(0, limit);
   }
 
   const tokens = tokenize(q);
-  const destination = opts?.destination?.replace(/(市|县|区)$/, '');
+  const aliases = destination ? destinationAliases(destination) : [];
 
-  const ranked = notes
-    .map((note) => ({
-      note,
-      score:
-        scoreNote(note, tokens) +
-        (destination && note.destination.includes(destination) ? 8 : 0) +
-        (destination && note.title.includes(destination) ? 3 : 0),
-    }))
+  const ranked = pool
+    .map((note) => {
+      let score = scoreNote(note, tokens);
+      if (destination) {
+        if (note.destination.includes(destination)) {
+          score += 12;
+        }
+        if (note.title.includes(destination)) {
+          score += 6;
+        }
+        for (const alias of aliases) {
+          if (alias.length >= 2 && note.title.includes(alias)) {
+            score += 4;
+          }
+        }
+      }
+      return { note, score };
+    })
     .filter(({ score }) => score > 0)
     .sort((a, b) => b.score - a.score);
 
@@ -108,7 +137,7 @@ function rankNotes(
     return ranked.slice(0, limit).map(({ note }) => note);
   }
 
-  return notes
+  return pool
     .filter(
       (note) =>
         note.title.toLowerCase().includes(q) ||
@@ -170,35 +199,49 @@ export class NotesService {
   }
 
   private async loadNotes(destination?: string): Promise<XhsNote[]> {
+    const normalizedDest = destination
+      ? normalizeSearchDestination(destination)
+      : '';
+
+    let allNotes: XhsNote[] = [];
     try {
-      const dest = destination?.replace(/(市|县|区)$/, '');
       const rows = await this.prisma.travelGuide.findMany({
-        where: dest
-          ? {
-              OR: [
-                { destination: { contains: dest } },
-                { keywords: { has: dest } },
-              ],
-            }
-          : undefined,
         orderBy: { destination: 'asc' },
       });
-
       if (rows.length) {
-        return rows.map((row) => this.mapRow(row));
-      }
-
-      const all = await this.prisma.travelGuide.findMany({
-        orderBy: { destination: 'asc' },
-      });
-      if (all.length) {
-        return all.map((row) => this.mapRow(row));
+        allNotes = rows.map((row) => this.mapRow(row));
       }
     } catch (error) {
       this.logger.warn('读取攻略库失败，使用内置种子数据', error);
     }
 
-    return this.fallbackNotes();
+    if (!allNotes.length) {
+      allNotes = this.fallbackNotes();
+    }
+
+    if (!normalizedDest) {
+      return allNotes;
+    }
+
+    const aliases = destinationAliases(normalizedDest);
+    const matched = allNotes.filter((note) =>
+      noteMatchesDestination(note, normalizedDest),
+    );
+    if (matched.length) {
+      return matched;
+    }
+
+    const loose = allNotes.filter((note) => {
+      const haystack = `${note.destination}${note.title}${note.keywords.join('')}`;
+      return aliases.some((alias) => alias.length >= 2 && haystack.includes(alias));
+    });
+    if (loose.length) {
+      return loose;
+    }
+
+    return this.fallbackNotes().filter((note) =>
+      noteMatchesDestination(note, normalizedDest),
+    );
   }
 
   async search(

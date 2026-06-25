@@ -22,10 +22,18 @@ import {
 } from './itinerary-revision.utils';
 import { PlanAgentService } from './plan-agent.service';
 import type { PlanAgentLog, PlanAgentLogKind } from './plan-agent.types';
+import { normalizeSearchDestination } from '../notes/destination.utils';
 
 type ReviseLogHandler = (kind: PlanAgentLogKind, text: string) => void;
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+function normalizePlanDto(dto: PlanItineraryDto): PlanItineraryDto {
+  const fromRaw = dto.rawQuery ? normalizeSearchDestination(dto.rawQuery) : '';
+  const fromDest = normalizeSearchDestination(dto.destination);
+  const destination = fromRaw || fromDest || dto.destination.trim();
+  return { ...dto, destination };
+}
 
 @Controller('ai')
 @UseGuards(JwtAuthGuard)
@@ -39,16 +47,17 @@ export class AiController {
   ) {}
 
   private async createTripFromPlan(dto: PlanItineraryDto, userId: number) {
+    const planDto = normalizePlanDto(dto);
     const logs: PlanAgentLog[] = [];
-    const rawItinerary = await this.planAgent.planItinerary(dto, (log) => {
+    const rawItinerary = await this.planAgent.planItinerary(planDto, (log) => {
       logs.push(log);
     });
     const itinerary = sanitizeItinerary(rawItinerary);
     const count = await this.prisma.trip.count({ where: { userId } });
-    const createDto = itineraryToCreateTripDto(itinerary, dto, count);
+    const createDto = itineraryToCreateTripDto(itinerary, planDto, count);
     createDto.dayPlans = await this.geoService.enrichDayPlans(
       createDto.dayPlans ?? [],
-      dto.destination,
+      planDto.destination,
     );
     createDto.placeCount = countPlaces(createDto.dayPlans ?? []);
     const data = await this.tripsService.create(createDto, userId);
@@ -77,7 +86,8 @@ export class AiController {
     };
 
     try {
-      const rawItinerary = await this.planAgent.planItinerary(dto, (log) => {
+      const planDto = normalizePlanDto(dto);
+      const rawItinerary = await this.planAgent.planItinerary(planDto, (log) => {
         write({ type: 'log', kind: log.kind, text: log.text });
       });
       const itinerary = sanitizeItinerary(rawItinerary);
@@ -85,10 +95,10 @@ export class AiController {
       write({ type: 'status', text: '正在定位地点并保存行程…' });
 
       const count = await this.prisma.trip.count({ where: { userId: user.id } });
-      const createDto = itineraryToCreateTripDto(itinerary, dto, count);
+      const createDto = itineraryToCreateTripDto(itinerary, planDto, count);
       createDto.dayPlans = await this.geoService.enrichDayPlans(
         createDto.dayPlans ?? [],
-        dto.destination,
+        planDto.destination,
       );
       createDto.placeCount = countPlaces(createDto.dayPlans ?? []);
       const data = await this.tripsService.create(createDto, user.id);

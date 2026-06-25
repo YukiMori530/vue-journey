@@ -119,7 +119,12 @@ export class PlanAgentService {
         } else if (result.duplicate && result.matchedTitles.length) {
           onLog({
             kind: 'result',
-            text: `检索「${query}」，关联攻略：${result.matchedTitles.join('、')}`,
+            text: `已检索过类似关键词，继续补充搜索…`,
+          });
+        } else if (result.count === 0) {
+          onLog({
+            kind: 'result',
+            text: `暂无「${dto.destination}」本地攻略，将结合通用知识继续规划…`,
           });
         } else {
           onLog({
