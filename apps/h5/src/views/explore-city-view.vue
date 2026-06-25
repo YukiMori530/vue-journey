@@ -1,11 +1,15 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import PlaceCoverImage from '../components/place-cover-image.vue'
 import { getCityById } from '../data/explore-pois'
 import { fetchCityGuides, type XhsNote } from '../api/notes'
 import { extractGuideCoverPlace } from '../utils/guide-cover'
-import { ApiError } from '../api/client'
+import {
+  destinationDisplayName,
+  normalizeDestinationName,
+  resolveDestinationFromCitySlug,
+} from '../utils/city-slug'
 import { useTripStore } from '../stores/trip'
 import { useAuthStore } from '../stores/auth'
 import { formatActionError } from '../utils/format-action-error'
@@ -27,48 +31,67 @@ const guides = ref<XhsNote[]>([])
 const loading = ref(true)
 const importingId = ref('')
 
+const fetchDestination = computed(() => {
+  const fromQuery = typeof route.query.dest === 'string' ? route.query.dest.trim() : ''
+  if (fromQuery) {
+    return normalizeDestinationName(fromQuery)
+  }
+  return resolveDestinationFromCitySlug(cityId.value)
+})
+
 const heroCoverPlace = computed(() => {
   const first = guides.value[0]
-  if (!first) {
-    return exploreCity.value.name.replace(/(市|县|区)$/, '')
+  if (first) {
+    return extractGuideCoverPlace(first.content, first.destination)
   }
-  return extractGuideCoverPlace(first.content, first.destination)
+  return fetchDestination.value
 })
 
 const heroDestination = computed(
-  () => guides.value[0]?.destination ?? exploreCity.value.name.replace(/(市|县|区)$/, ''),
+  () => guides.value[0]?.destination ?? fetchDestination.value,
 )
 
 const cityName = computed(() => {
   const fromGuide = guides.value[0]?.destination
   if (fromGuide) {
-    return fromGuide.includes('市') ? fromGuide : `${fromGuide}市`
+    return destinationDisplayName(fromGuide)
   }
-  return exploreCity.value?.name ?? cityId.value
+  return destinationDisplayName(fetchDestination.value)
 })
 
 const intro = computed(() => guides.value[0]?.snippet ?? '探索这座城市的攻略与路线灵感。')
 
-onMounted(async () => {
-  const dest =
-    exploreCity.value?.name.replace(/(市|县|区)$/, '') ||
-    cityId.value.replace(/-/g, '')
+async function loadGuides() {
+  loading.value = true
   try {
-    guides.value = await fetchCityGuides(dest)
+    guides.value = await fetchCityGuides(fetchDestination.value)
   } catch (error) {
-    const message = error instanceof ApiError ? error.message : '加载城市攻略失败'
-    showAppFailToast(message)
+    showAppFailToast(formatActionError(error, '加载城市攻略失败'))
   } finally {
     loading.value = false
   }
-})
+}
+
+onMounted(loadGuides)
+
+watch(
+  () => [cityId.value, route.query.dest] as const,
+  () => {
+    void loadGuides()
+  },
+)
 
 function goBack() {
   router.back()
 }
 
 function openOnMap() {
-  router.push({ path: '/explore', query: { city: cityId.value } })
+  const mapCity = exploreCity.value
+  if (mapCity) {
+    router.push({ path: '/explore', query: { city: mapCity.id } })
+    return
+  }
+  router.push({ path: '/explore', query: { dest: fetchDestination.value } })
 }
 
 async function importGuide(note: XhsNote) {

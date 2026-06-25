@@ -120,5 +120,9 @@ export const exploreCities: ExploreCity[] = [
 ]
 
 export function getCityById(id: string) {
-  return exploreCities.find((city) => city.id === id) ?? exploreCities[0]
+  return exploreCities.find((city) => city.id === id)
+}
+
+export function getCityByIdOrDefault(id: string) {
+  return getCityById(id) ?? exploreCities[0]
 }

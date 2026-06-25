@@ -3,7 +3,7 @@ import { computed, onMounted, onUnmounted, ref, shallowRef } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { showToast } from 'vant'
 import PlaceCoverImage from '../components/place-cover-image.vue'
-import { exploreCities, getCityById, type ExplorePoi, type PoiCategory } from '../data/explore-pois'
+import { exploreCities, getCityByIdOrDefault, type ExplorePoi, type PoiCategory } from '../data/explore-pois'
 import { mapStories, type MapStory } from '../data/explore-discover'
 import { fetchExploreFeed, type ExploreCollectionItem, type ExploreHotCity } from '../api/notes'
 import { useAuthStore } from '../stores/auth'
@@ -38,7 +38,7 @@ const isSheetExpanded = computed(() => {
   return sheetHeight.value >= fullAnchor - 24
 })
 
-const currentCity = computed(() => getCityById(currentCityId.value))
+const currentCity = computed(() => getCityByIdOrDefault(currentCityId.value))
 
 const cityActions = exploreCities.map((city) => ({
   name: city.name,
@@ -265,7 +265,8 @@ function openCollection(item: ExploreCollectionItem) {
 }
 
 function openHotCity(city: ExploreHotCity) {
-  router.push(`/explore/city/${city.id}`)
+  const dest = city.name.replace(/(市|县|区|省)$/, '')
+  router.push({ path: `/explore/city/${city.id}`, query: { dest } })
 }
 
 function getSafeAreaBottom() {

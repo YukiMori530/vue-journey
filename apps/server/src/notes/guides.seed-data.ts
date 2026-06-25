@@ -504,7 +504,7 @@ export const travelGuideSeeds: TravelGuideSeed[] = [
     id: 'guide-sanya-beach-3d',
     title: '三亚3日海滨度假',
     author: '热带假期',
-    cover: '/covers/default.jpg',
+    cover: '/covers/hainan.jpg',
     destination: '三亚',
     days: 3,
     category: '海滨',
@@ -695,5 +695,203 @@ export const travelGuideSeeds: TravelGuideSeed[] = [
 - 海埂公园
 - 滇池
 - 斗南花卉市场`,
+  },
+  {
+    id: 'guide-sanya-island-2d',
+    title: '三亚2日海岛轻度假｜蜈支洲与后海',
+    author: '热带假期',
+    cover: '/covers/hainan.jpg',
+    destination: '三亚',
+    days: 2,
+    category: '海滨',
+    likes: '3.8w',
+    snippet: '蜈支洲岛浮潜 + 后海村日落，适合第一次来三亚',
+    keywords: ['三亚', '蜈支洲', '后海', '浮潜'],
+    content: `第1天
+- 蜈支洲岛
+- 情人桥
+- 后海村
+
+第2天
+- 亚龙湾海滩
+- 鹿回头风景区
+- 第一市场`,
+  },
+  {
+    id: 'guide-lijiang-yulong-2d',
+    title: '丽江2日｜古城与玉龙雪山',
+    author: '滇西行记',
+    cover: '/covers/default.jpg',
+    destination: '丽江',
+    days: 2,
+    category: '自然',
+    likes: '3.2w',
+    snippet: '大研古城慢逛，雪山蓝月谷一日线',
+    keywords: ['丽江', '玉龙雪山', '蓝月谷', '古城'],
+    content: `第1天
+- 丽江古城
+- 四方街
+- 狮子山万古楼
+
+第2天
+- 玉龙雪山
+- 蓝月谷
+- 束河古镇`,
+  },
+  {
+    id: 'guide-nanjing-qinhuai-1d',
+    title: '南京1日秦淮夜逛',
+    author: '金陵旧梦',
+    cover: '/covers/default.jpg',
+    destination: '南京',
+    days: 1,
+    category: '美食',
+    likes: '2.1w',
+    snippet: '夫子庙小吃 + 秦淮河夜游，城区轻松线',
+    keywords: ['南京', '夫子庙', '秦淮河', '美食'],
+    content: `第1天
+- 夫子庙
+- 秦淮河画舫码头
+- 老门东
+- 南京大牌档`,
+  },
+  {
+    id: 'guide-guangzhou-weekend-1d',
+    title: '广州1日老城漫步',
+    author: '粤味指南',
+    cover: '/covers/default.jpg',
+    destination: '广州',
+    days: 1,
+    category: 'CityWalk',
+    likes: '2.4w',
+    snippet: '沙面岛欧式建筑 + 永庆坊骑楼',
+    keywords: ['广州', '沙面', '永庆坊', 'CityWalk'],
+    content: `第1天
+- 沙面岛
+- 永庆坊
+- 陈家祠
+- 北京路步行街`,
+  },
+  {
+    id: 'guide-xiamen-island-2d',
+    title: '厦门2日海岛文艺线',
+    author: '鹭岛慢游',
+    cover: '/covers/default.jpg',
+    destination: '厦门',
+    days: 2,
+    category: '海滨',
+    likes: '3.6w',
+    snippet: '鼓浪屿 + 环岛路骑行，适合周末小假',
+    keywords: ['厦门', '鼓浪屿', '环岛路', '文艺'],
+    content: `第1天
+- 鼓浪屿
+- 日光岩
+- 菽庄花园
+
+第2天
+- 环岛路
+- 曾厝垵
+- 南普陀寺`,
+  },
+  {
+    id: 'guide-dali-erhai-2d',
+    title: '大理2日洱海环线',
+    author: '滇西行记',
+    cover: '/covers/default.jpg',
+    destination: '大理',
+    days: 2,
+    category: '自然',
+    likes: '2.9w',
+    snippet: '洱海骑行 + 喜洲古镇，风花雪月经典线',
+    keywords: ['大理', '洱海', '喜洲', '古城'],
+    content: `第1天
+- 大理古城
+- 人民路
+- 崇圣寺三塔
+
+第2天
+- 喜洲古镇
+- 双廊古镇
+- 洱海生态廊道`,
+  },
+  {
+    id: 'guide-guilin-yangshuo-2d',
+    title: '桂林2日阳朔山水',
+    author: '漓江行舟',
+    cover: '/covers/default.jpg',
+    destination: '桂林',
+    days: 2,
+    category: '自然',
+    likes: '3.1w',
+    snippet: '象鼻山 CityWalk + 阳朔西街夜逛',
+    keywords: ['桂林', '阳朔', '西街', '山水'],
+    content: `第1天
+- 象鼻山
+- 两江四湖
+- 正阳步行街
+
+第2天
+- 阳朔西街
+- 遇龙河
+- 十里画廊`,
+  },
+  {
+    id: 'guide-shenzhen-tech-1d',
+    title: '深圳1日湾区CityWalk',
+    author: '湾区漫步',
+    cover: '/covers/default.jpg',
+    destination: '深圳',
+    days: 1,
+    category: 'CityWalk',
+    likes: '1.5w',
+    snippet: '深圳湾看海 + 华侨城创意园',
+    keywords: ['深圳', '深圳湾', '华侨城', 'CityWalk'],
+    content: `第1天
+- 深圳湾公园
+- 人才公园
+- 华侨城创意文化园
+- 海上世界`,
+  },
+  {
+    id: 'guide-wuhan-cherry-2d',
+    title: '武汉2日江城经典',
+    author: '江城笔记',
+    cover: '/covers/default.jpg',
+    destination: '武汉',
+    days: 2,
+    category: '人文',
+    likes: '2.2w',
+    snippet: '黄鹤楼 + 东湖绿道，江城地标不绕路',
+    keywords: ['武汉', '黄鹤楼', '东湖', '热干面'],
+    content: `第1天
+- 黄鹤楼
+- 户部巷
+- 长江大桥
+
+第2天
+- 东湖绿道
+- 湖北省博物馆
+- 楚河汉街`,
+  },
+  {
+    id: 'guide-chongqing-hotpot-2d',
+    title: '重庆2日火锅与夜景',
+    author: '山城味道',
+    cover: '/covers/default.jpg',
+    destination: '重庆',
+    days: 2,
+    category: '美食',
+    likes: '4.2w',
+    snippet: '解放碑逛吃 + 洪崖洞夜景，8D 魔幻山城',
+    keywords: ['重庆', '火锅', '洪崖洞', '夜景'],
+    content: `第1天
+- 解放碑步行街
+- 八一路好吃街
+- 洪崖洞
+
+第2天
+- 李子坝轻轨站
+- 鹅岭二厂
+- 南山一棵树`,
   },
 ]
