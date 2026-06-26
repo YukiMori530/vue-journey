@@ -8,6 +8,18 @@ declare global {
   }
 }
 
+let preloadPromise: Promise<typeof AMap> | null = null
+
+export function preloadAMap() {
+  if (!preloadPromise) {
+    preloadPromise = loadAMap(['AMap.Polyline']).catch(() => {
+      preloadPromise = null
+      throw new Error('preload failed')
+    })
+  }
+  return preloadPromise
+}
+
 export async function loadAMap(plugins: string[] = []) {
   const key = import.meta.env.VITE_AMAP_KEY
   const securityJsCode = import.meta.env.VITE_AMAP_SECURITY_CODE

@@ -15,6 +15,7 @@ import { useProfileStore } from '../stores/profile'
 import { enrichDayPlan } from '../utils/enrich-trip-stops'
 import { formatStopDisplayName } from '../utils/display-stop-name'
 import { pickRevisionFocusDay } from '../utils/pick-revision-focus-day'
+import { preloadAMap } from '../utils/amap'
 import { showAppFailToast, showAppSuccessToast, queueAppSuccessToast } from '../utils/app-toast'
 import { ApiError } from '../api/client'
 import type { TripStop } from '../types/trip'
@@ -75,6 +76,8 @@ const activeDayTitle = computed(() => {
 })
 
 onMounted(async () => {
+  preloadAMap().catch(() => undefined)
+
   const dayQuery = Number(route.query.day)
   if (dayQuery >= 1) {
     selectedTab.value = dayQuery

@@ -11,7 +11,7 @@ export interface ResolvedDayStops {
   totalKm: number
 }
 
-const DAY_RESOLVE_TIMEOUT_MS = 18_000
+const DAY_RESOLVE_TIMEOUT_MS = 14_000
 
 function dayRouteKm(stops: TripStop[]): number {
   return sumStopRouteKm(stops)
@@ -24,6 +24,25 @@ function withTimeout<T>(promise: Promise<T>, ms: number, fallback: T): Promise<T
       setTimeout(() => resolve(fallback), ms)
     }),
   ])
+}
+
+async function resolveDay(
+  trip: Trip,
+  dayIndex: number,
+): Promise<ResolvedDayStops> {
+  const dayPlan = trip.dayPlans[dayIndex]
+  const enriched = enrichDayPlan(dayPlan, trip.destination)
+  const stops = await withTimeout(
+    resolveDayStops(enriched.places, trip.destination, dayIndex),
+    DAY_RESOLVE_TIMEOUT_MS,
+    enriched.places,
+  )
+  return {
+    day: dayPlan.day,
+    title: enriched.title,
+    stops,
+    totalKm: dayRouteKm(stops),
+  }
 }
 
 export function useResolvedTripStops(trip: Ref<Trip | undefined>) {
@@ -48,33 +67,32 @@ export function useResolvedTripStops(trip: Ref<Trip | undefined>) {
 
       loading.value = true
       try {
-        const resolved: ResolvedDayStops[] = []
-        for (let dayIndex = 0; dayIndex < current.dayPlans.length; dayIndex += 1) {
-          const dayPlan = current.dayPlans[dayIndex]
-          const enriched = enrichDayPlan(dayPlan, current.destination)
-          const stops = await withTimeout(
-            resolveDayStops(enriched.places, current.destination, dayIndex),
-            DAY_RESOLVE_TIMEOUT_MS,
-            enriched.places,
-          )
-          let withDrive = stops
-          try {
-            withDrive = await withTimeout(
-              enrichStopsDriveMetrics(stops),
-              10_000,
-              stops,
-            )
-          } catch {
-            // 高德不可用时保留直线估算
-          }
-          resolved.push({
-            day: dayPlan.day,
-            title: enriched.title,
-            stops: withDrive,
-            totalKm: dayRouteKm(withDrive),
-          })
-        }
+        const resolved = await Promise.all(
+          current.dayPlans.map((_day, dayIndex) => resolveDay(current, dayIndex)),
+        )
         days.value = resolved
+        loading.value = false
+
+        void Promise.all(
+          resolved.map(async (day, index) => {
+            try {
+              const withDrive = await withTimeout(
+                enrichStopsDriveMetrics(day.stops),
+                8_000,
+                day.stops,
+              )
+              if (days.value[index]?.day === day.day) {
+                days.value[index] = {
+                  ...day,
+                  stops: withDrive,
+                  totalKm: dayRouteKm(withDrive),
+                }
+              }
+            } catch {
+              // 保留已定位坐标，路线距离可稍后重试
+            }
+          }),
+        )
       } finally {
         loading.value = false
       }

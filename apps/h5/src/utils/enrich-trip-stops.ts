@@ -1,5 +1,6 @@
 import type { DayPlan, TripStop } from '../types/trip'
 import { formatStopDisplayName } from './display-stop-name'
+import { buildPoiIntro } from './poi-intros'
 
 const CATEGORY_LABEL: Record<string, string> = {
   sight: '景点',
@@ -35,7 +36,9 @@ export function enrichStop(stop: TripStop, index: number, destination: string): 
   const displayName = formatStopDisplayName(stop.name, destination)
   const minutes = stop.duration ?? 90
   const category = stop.category ?? 'sight'
+  const poiIntro = buildPoiIntro(displayName, destination, minutes, category)
   const fallbackIntro =
+    poiIntro ??
     CATEGORY_INTRO[category]?.(displayName, destination.replace(/(市|县|区)$/, ''), minutes) ??
     `${displayName}值得纳入${destination}行程。建议预留 ${minutes} 分钟，结合前后站点距离与开放时间灵活调整。`
 

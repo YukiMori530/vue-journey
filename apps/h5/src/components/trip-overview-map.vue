@@ -64,7 +64,7 @@ async function renderMap() {
   }
 
   try {
-    const AMapLib = await withTimeout(loadAMap(['AMap.Polyline']), 12_000)
+    const AMapLib = await withTimeout(loadAMap(['AMap.Polyline']), 8_000)
     if (!AMapLib || seq !== renderSeq) {
       return
     }
@@ -95,7 +95,6 @@ async function renderMap() {
 
     clearMapOverlays()
     const markers: AMap.Marker[] = []
-    const polylines: AMap.Polyline[] = []
 
     for (const dayPlan of visibleDays.value) {
       const located = dayPlan.stops.filter((stop) => stop.lng != null && stop.lat != null)
@@ -123,6 +122,26 @@ async function renderMap() {
         })
         badge.setMap(mapInstance.value!)
         markers.push(badge)
+      }
+    }
+
+    mapMarkers.value = markers
+
+    if (markers.length && mapInstance.value) {
+      mapInstance.value.setFitView(markers, false, [56, 56, 56, 56])
+    } else if (props.destination && mapInstance.value) {
+      const geocoded = await geocodeCityCenter(props.destination)
+      const fallback = defaultCityCenter(props.destination)
+      const center = geocoded ?? fallback
+      mapInstance.value.setCenter([center.lng, center.lat])
+      mapInstance.value.setZoom(11)
+    }
+
+    const polylines: AMap.Polyline[] = []
+    for (const dayPlan of visibleDays.value) {
+      const located = dayPlan.stops.filter((stop) => stop.lng != null && stop.lat != null)
+      if (located.length < 2) {
+        continue
       }
 
       const segments = await buildRouteSegments(
@@ -152,18 +171,7 @@ async function renderMap() {
       }
     }
 
-    mapMarkers.value = markers
     mapPolylines.value = polylines
-
-    if (markers.length && mapInstance.value) {
-      mapInstance.value.setFitView(markers, false, [56, 56, 56, 56])
-    } else if (props.destination && mapInstance.value) {
-      const geocoded = await geocodeCityCenter(props.destination)
-      const fallback = defaultCityCenter(props.destination)
-      const center = geocoded ?? fallback
-      mapInstance.value.setCenter([center.lng, center.lat])
-      mapInstance.value.setZoom(11)
-    }
   } catch {
     // ignore map errors
   }

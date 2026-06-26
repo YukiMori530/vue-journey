@@ -26,6 +26,11 @@ import {
   dedupeNearbyStops,
   optimizeStopOrder,
 } from './route-order'
+import {
+  geocodeCacheKey,
+  getCachedGeocode,
+  setCachedGeocode,
+} from './geocode-cache'
 
 let backendGeoEnabled: boolean | null = null
 let backendGeoCheckedAt = 0
@@ -89,6 +94,15 @@ async function resolveSingleStop(
   urbanClusterAnchors: GeoPoint[],
   clusterCity: string | null,
 ): Promise<TripStop> {
+  const cacheKey = geocodeCacheKey(destination, stop.name)
+  const cachedPoint = getCachedGeocode(cacheKey)
+  if (
+    cachedPoint &&
+    isWithinDestination(cachedPoint, cityCenter, stop.name, destination)
+  ) {
+    return { ...stop, ...cachedPoint }
+  }
+
   const stopCity = inferStopCity(stop.name, destination)
   const { center: stopCenter } = resolveStopGeoContext(
     stop.name,
@@ -102,6 +116,7 @@ async function resolveSingleStop(
 
   const known = lookupKnownLandmark(stop.name, destination)
   if (known && isWithinDestination(known, cityCenter, stop.name, destination)) {
+    setCachedGeocode(cacheKey, known)
     return { ...stop, ...known }
   }
 
@@ -154,6 +169,7 @@ async function resolveSingleStop(
     ) {
       point = landmark
     }
+    setCachedGeocode(cacheKey, point)
   }
 
   return point ? { ...stop, ...point } : stop
@@ -233,6 +249,7 @@ export async function resolveDayStops(
             isCoordPlausibleForStop(point, anchor, item.name)
           ) {
             batchCoordCache.set(batchCacheKey(destination, item.name), point)
+            setCachedGeocode(geocodeCacheKey(destination, item.name), point)
           }
         }
       })
