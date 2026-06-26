@@ -1,6 +1,7 @@
 import * as geoApi from '../api/geo'
 import {
   geocodeCityByJs,
+  geocodeAddressByJs,
   searchPlaceByJs,
   type GeoPoint,
 } from './amap-geocode'
@@ -27,8 +28,11 @@ import {
   optimizeStopOrder,
 } from './route-order'
 import {
+  cacheResolvedStops,
   geocodeCacheKey,
+  getCachedCityCenter,
   getCachedGeocode,
+  setCachedCityCenter,
   setCachedGeocode,
 } from './geocode-cache'
 
@@ -72,10 +76,16 @@ export async function geocodeCityCenter(destination: string): Promise<GeoPoint |
     return defaultCityCenter(extractDestinationRegion(destination))
   }
 
+  const cached = getCachedCityCenter(destination)
+  if (cached) {
+    return cached
+  }
+
   if (await isBackendGeoEnabled()) {
     try {
       const point = await geoApi.geocodeCity(destination)
       if (point) {
+        setCachedCityCenter(destination, point)
         return point
       }
     } catch {
@@ -83,7 +93,32 @@ export async function geocodeCityCenter(destination: string): Promise<GeoPoint |
     }
   }
 
-  return geocodeCityByJs(destination)
+  const jsPoint = await geocodeCityByJs(destination)
+  if (jsPoint) {
+    setCachedCityCenter(destination, jsPoint)
+  }
+  return jsPoint
+}
+
+async function geocodeStopViaBackend(
+  name: string,
+  destination: string,
+  cityCenter: GeoPoint | null,
+  anchor: GeoPoint | null,
+): Promise<GeoPoint | null> {
+  try {
+    const remote = await geoApi.geocodePlace(name, destination)
+    if (
+      remote &&
+      isWithinDestination(remote, cityCenter, name, destination) &&
+      isCoordPlausibleForStop(remote, anchor, name)
+    ) {
+      return remote
+    }
+  } catch {
+    // ignore
+  }
+  return null
 }
 
 async function resolveSingleStop(
@@ -159,6 +194,25 @@ async function resolveSingleStop(
       break
     }
     point = null
+  }
+
+  if (!point && (await isBackendGeoEnabled())) {
+    point = await withTimeout(
+      geocodeStopViaBackend(stop.name, destination, cityCenter, anchor),
+      GEO_STOP_TIMEOUT_MS,
+      null,
+    )
+  }
+
+  if (!point) {
+    point = await withTimeout(
+      geocodeAddressByJs(stop.name, stopCity),
+      GEO_STOP_TIMEOUT_MS,
+      null,
+    )
+    if (point && !isWithinDestination(point, cityCenter, stop.name, destination)) {
+      point = null
+    }
   }
 
   if (point) {
@@ -287,6 +341,7 @@ export async function resolveDayStops(
 
   const cleaned = dedupeNearbyStops(resolved)
   const ordered = optimizeStopOrder(cleaned, cityCenter, destination)
+  cacheResolvedStops(destination, ordered)
   return attachDriveSegments(ordered)
 }
 

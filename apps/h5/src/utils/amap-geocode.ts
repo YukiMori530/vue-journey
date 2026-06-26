@@ -12,26 +12,33 @@ import {
   shouldBindToCluster,
   type GeoPoint,
 } from './geo-distance'
+import {
+  cityCacheKey,
+  geocodeCacheKey,
+  getCachedGeocode,
+  setCachedGeocode,
+} from './geocode-cache'
 
 export type { GeoPoint }
+
+function readMemoryCache(key: string): GeoPoint | null {
+  return memoryCache.get(key) ?? getCachedGeocode(key)
+}
+
+function writeMemoryCache(key: string, point: GeoPoint) {
+  memoryCache.set(key, point)
+  setCachedGeocode(key, point)
+}
 
 const memoryCache = new Map<string, GeoPoint>()
 
 function cacheKey(kind: 'city' | 'poi', city: string, keyword: string) {
-  return `${kind}:${city}:${keyword}`
-}
-
-function readCache(key: string): GeoPoint | null {
-  return memoryCache.get(key) ?? null
-}
-
-function writeCache(key: string, point: GeoPoint) {
-  memoryCache.set(key, point)
+  return kind === 'city' ? cityCacheKey(city || keyword) : geocodeCacheKey(city, keyword)
 }
 
 export async function geocodeCityByJs(keyword: string): Promise<GeoPoint | null> {
   const key = cacheKey('city', '', keyword)
-  const cached = readCache(key)
+  const cached = readMemoryCache(key)
   if (cached) {
     return cached
   }
@@ -45,7 +52,7 @@ export async function geocodeCityByJs(keyword: string): Promise<GeoPoint | null>
         if (status === 'complete' && result.geocodes?.length) {
           const location = result.geocodes[0].location
           const point = { lng: location.lng, lat: location.lat }
-          writeCache(key, point)
+          writeMemoryCache(key, point)
           resolve(point)
           return
         }
@@ -55,6 +62,28 @@ export async function geocodeCityByJs(keyword: string): Promise<GeoPoint | null>
   } catch {
     return null
   }
+}
+
+/** 地址 → 经纬度（高德 JS 地理编码，POI 搜索失败时的兜底） */
+export async function geocodeAddressByJs(
+  address: string,
+  city: string,
+): Promise<GeoPoint | null> {
+  const key = geocodeCacheKey(city, address)
+  const cached = readMemoryCache(key)
+  if (cached) {
+    return cached
+  }
+
+  for (const query of buildPlaceQueries(address, city)) {
+    const point = await geocodeCityByJs(query.includes(city) ? query : `${city}${query}`)
+    if (point) {
+      writeMemoryCache(key, point)
+      return point
+    }
+  }
+
+  return null
 }
 
 function pickBestJsPoi(
@@ -113,7 +142,7 @@ export async function searchPlaceByJs(
   clusterAnchors: GeoPoint[] = [],
 ): Promise<GeoPoint | null> {
   const key = cacheKey('poi', city, keyword)
-  const cached = readCache(key)
+  const cached = readMemoryCache(geocodeCacheKey(city, keyword)) ?? readMemoryCache(key)
   if (
     cached &&
     isCoordPlausibleForStop(cached, anchor ?? null, keyword) &&
@@ -146,7 +175,8 @@ export async function searchPlaceByJs(
       })
 
       if (point) {
-        writeCache(key, point)
+        writeMemoryCache(key, point)
+        writeMemoryCache(geocodeCacheKey(city, keyword), point)
         return point
       }
     }

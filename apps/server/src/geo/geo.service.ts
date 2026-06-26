@@ -413,7 +413,44 @@ export class GeoService {
       return searched;
     }
 
+    const cityName = normalizeCityName(stopCity) || stopCity;
+    for (const address of buildPlaceQueries(name, stopCity)) {
+      const geocoded = await this.geocodeAddress(address, cityName);
+      if (
+        geocoded &&
+        isWithinDestination(geocoded, cityCenter, name, destination) &&
+        isCoordPlausibleForStop(geocoded, anchor, name)
+      ) {
+        this.cache.set(`poi:${stopCity}:${name}`, geocoded);
+        return geocoded;
+      }
+    }
+
     return null;
+  }
+
+  /** POI 搜索 + 地理编码（地址→经纬度）统一入口 */
+  async geocodePlace(
+    keyword: string,
+    destination: string,
+  ): Promise<GeoPoint | null> {
+    const cityCenter = await this.geocodeCity(destination);
+    const stopCity = inferStopCity(keyword, destination);
+    const { center: stopCenter } = resolveStopGeoContext(
+      keyword,
+      destination,
+      cityCenter,
+    );
+    const anchor = stopCenter ?? cityCenter;
+
+    return this.resolveStop(
+      keyword,
+      destination,
+      0,
+      cityCenter,
+      [],
+      stopCity,
+    );
   }
 
   private async resolveDayPlaces(

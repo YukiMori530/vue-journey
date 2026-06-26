@@ -958,6 +958,19 @@ export function buildPlaceQueries(name: string, city: string): string[] {
       '后海渔村',
     );
   }
+  if (
+    stripped.length <= 6 &&
+    /^(四方街|古城|老街|万古楼|狮子山|木府|束河)$/.test(stripped)
+  ) {
+    queries.push(
+      `${cityName}古城${stripped}`,
+      `${cityName}市${stripped}`,
+      `${cityName}${stripped}`,
+    );
+  }
+  if (stripped === '古城' || stripped.endsWith('古城')) {
+    queries.push(`${cityName}古城`, `${cityName}大研古城`, `${cityName}市古城`);
+  }
 
   if (/长城|八达岭|慕田峪|居庸关|兵马俑|雅丹|玉龙雪山|阳朔/.test(stripped)) {
     queries.push(`${stripped}景区`, `${stripped}风景名胜区`);

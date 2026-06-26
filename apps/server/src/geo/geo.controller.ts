@@ -29,6 +29,19 @@ export class GeoController {
   }
 
   @Public()
+  @Get('place')
+  async place(
+    @Query('name') name: string,
+    @Query('destination') destination: string,
+  ) {
+    const point = await this.geoService.geocodePlace(
+      name?.trim() ?? '',
+      destination?.trim() ?? '',
+    );
+    return { data: point, message: point ? 'ok' : 'not_found' };
+  }
+
+  @Public()
   @Post('batch')
   async batch(@Body() dto: BatchGeocodeDto) {
     const data = await this.geoService.batchGeocode(dto.destination, dto.places);

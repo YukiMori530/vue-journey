@@ -20,6 +20,11 @@ export function geocodeCity(keyword: string) {
   return request<GeoPoint | null>(`/api/geo/city?keyword=${encodeURIComponent(keyword)}`)
 }
 
+export function geocodePlace(name: string, destination: string) {
+  const params = new URLSearchParams({ name, destination })
+  return request<GeoPoint | null>(`/api/geo/place?${params}`)
+}
+
 export function batchGeocode(destination: string, places: string[]) {
   return request<GeocodedPlace[]>('/api/geo/batch', {
     method: 'POST',

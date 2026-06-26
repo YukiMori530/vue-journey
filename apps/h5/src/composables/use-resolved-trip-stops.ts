@@ -2,6 +2,12 @@ import { ref, watch, type Ref } from 'vue'
 import type { Trip, TripStop } from '../types/trip'
 import { enrichDayPlan } from '../utils/enrich-trip-stops'
 import { enrichStopsDriveMetrics, sumStopRouteKm } from '../utils/amap-route'
+import {
+  cacheResolvedStops,
+  getCachedTripStops,
+  setCachedTripStops,
+  tripStopsCacheKey,
+} from '../utils/geocode-cache'
 import { resolveDayStops } from '../utils/trip-geocode'
 
 export interface ResolvedDayStops {
@@ -45,6 +51,12 @@ async function resolveDay(
   }
 }
 
+function allStopsLocated(days: ResolvedDayStops[]): boolean {
+  return days.every((day) =>
+    day.stops.every((stop) => stop.lng != null && stop.lat != null),
+  )
+}
+
 export function useResolvedTripStops(trip: Ref<Trip | undefined>) {
   const days = ref<ResolvedDayStops[]>([])
   const loading = ref(false)
@@ -65,13 +77,29 @@ export function useResolvedTripStops(trip: Ref<Trip | undefined>) {
         return
       }
 
-      loading.value = true
+      const cacheKey = tripStopsCacheKey(
+        current.id,
+        current.updatedAt,
+        current.destination,
+      )
+      const cached = getCachedTripStops<ResolvedDayStops>(cacheKey)
+      if (cached?.length) {
+        days.value = cached
+        loading.value = false
+        if (allStopsLocated(cached)) {
+          return
+        }
+      } else {
+        loading.value = true
+      }
+
       try {
         const resolved = await Promise.all(
           current.dayPlans.map((_day, dayIndex) => resolveDay(current, dayIndex)),
         )
         days.value = resolved
-        loading.value = false
+        setCachedTripStops(cacheKey, resolved)
+        resolved.forEach((day) => cacheResolvedStops(current.destination, day.stops))
 
         void Promise.all(
           resolved.map(async (day, index) => {
@@ -82,14 +110,17 @@ export function useResolvedTripStops(trip: Ref<Trip | undefined>) {
                 day.stops,
               )
               if (days.value[index]?.day === day.day) {
-                days.value[index] = {
+                const next = {
                   ...day,
                   stops: withDrive,
                   totalKm: dayRouteKm(withDrive),
                 }
+                days.value[index] = next
+                const snapshot = [...days.value]
+                setCachedTripStops(cacheKey, snapshot)
               }
             } catch {
-              // 保留已定位坐标，路线距离可稍后重试
+              // 保留已定位坐标
             }
           }),
         )
