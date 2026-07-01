@@ -15,6 +15,8 @@ const props = defineProps<{
   category?: string
   /** 本地/攻略封面，优先展示；高德图加载成功后会替换 */
   staticSrc?: string
+  /** 仅使用静态/本地封面，不被高德 POI 图覆盖（合集卡片用） */
+  preferStatic?: boolean
 }>()
 
 const src = ref<string | null>(null)
@@ -48,11 +50,16 @@ async function loadPhoto() {
   failed.value = false
   src.value = hasStatic ? localFallback : null
 
-  const photo = await resolvePlacePhoto(props.name, props.destination, {
-    category: props.category,
-  })
-  if (photo) {
-    src.value = photo
+  if (!props.preferStatic) {
+    const photo = await resolvePlacePhoto(props.name, props.destination, {
+      category: props.category,
+    })
+    if (photo) {
+      src.value = photo
+    } else if (!hasStatic) {
+      failed.value = true
+      src.value = null
+    }
   } else if (!hasStatic) {
     failed.value = true
     src.value = null

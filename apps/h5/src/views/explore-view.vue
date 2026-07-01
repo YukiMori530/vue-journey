@@ -5,7 +5,7 @@ import { showToast } from 'vant'
 import PlaceCoverImage from '../components/place-cover-image.vue'
 import ExploreCityPicker from '../components/explore-city-picker.vue'
 import { type ExploreCity, type ExplorePoi, type PoiCategory } from '../data/explore-pois'
-import { mapStories, type MapStory } from '../data/explore-discover'
+import { allMapStories, MAP_STORY_CLUSTERS, type MapStory } from '../data/explore-discover'
 import { fetchExploreFeed, type ExploreCollectionItem, type ExploreHotCity } from '../api/notes'
 import { useAuthStore } from '../stores/auth'
 import { loadAMap } from '../utils/amap'
@@ -41,6 +41,7 @@ const currentCityId = ref('beijing')
 const showCityPicker = ref(false)
 const dynamicCity = ref<ExploreCity | null>(null)
 const mapZoom = ref(11)
+const mapViewEpoch = ref(0)
 const MIN_POI_ZOOM = 11
 
 const sheetHeight = ref(280)
@@ -74,9 +75,32 @@ const visiblePois = computed(() => {
   return pois.filter((poi) => poi.category === selectedCategory.value)
 })
 
-const visibleStories = computed(() =>
-  mapStories.filter((story) => story.cityId === currentCityId.value),
-)
+function storiesInMapBounds(stories: MapStory[]): MapStory[] {
+  const map = mapInstance.value as AMap.Map & {
+    getBounds?: () => { contains: (point: [number, number]) => boolean }
+  }
+  const bounds = map?.getBounds?.()
+  if (!bounds) {
+    return stories
+  }
+  return stories.filter((story) => bounds.contains([story.lng, story.lat]))
+}
+
+const visibleStories = computed(() => {
+  void mapViewEpoch.value
+
+  if (mapZoom.value >= MIN_POI_ZOOM) {
+    return allMapStories.filter((story) => story.cityId === currentCityId.value)
+  }
+
+  const clusterIds = MAP_STORY_CLUSTERS[currentCityId.value]
+  if (clusterIds?.length) {
+    const idSet = new Set(clusterIds)
+    return allMapStories.filter((story) => idSet.has(story.id))
+  }
+
+  return storiesInMapBounds(allMapStories)
+})
 
 function buildStoryContent(story: MapStory) {
   return `
@@ -242,7 +266,14 @@ async function initMap() {
     mapZoom.value = zoomableMap.getZoom?.() ?? 11
     zoomableMap.on?.('zoomend', () => {
       mapZoom.value = zoomableMap.getZoom?.() ?? mapZoom.value
-      renderPoiMarkers()
+      mapViewEpoch.value += 1
+      renderMapMarkers()
+    })
+    zoomableMap.on?.('moveend', () => {
+      if (mapZoom.value < MIN_POI_ZOOM) {
+        mapViewEpoch.value += 1
+        renderStoryMarkers()
+      }
     })
     renderMapMarkers()
   } catch (error) {
@@ -500,6 +531,7 @@ onUnmounted(() => {
               :name="item.coverPlace"
               :destination="item.destination"
               :static-src="collectionStaticCover(item)"
+              prefer-static
             />
             <p class="collection-title">{{ item.title }}</p>
           </button>

@@ -1,3 +1,7 @@
+import { regionalMapStories } from './explore-map-stories'
+
+export { MAP_STORY_CLUSTERS } from './explore-map-stories'
+
 export interface MapStory {
   id: string
   cityId: string
@@ -27,7 +31,7 @@ export const mapStories: MapStory[] = [
   {
     id: 'bj-1',
     cityId: 'beijing',
-    cover: '/covers/discover-mountain.jpg',
+    cover: '/covers/beijing.jpg',
     text: '在北京最好的季节遇到它',
     location: '北京市',
     lng: 116.4074,
@@ -123,6 +127,9 @@ export const hotCities: HotCity[] = [
     description: '驴肉火烧的脆，是这座城最响亮的招呼。',
   },
 ]
+
+/** 地图实况头像（含周边城市） */
+export const allMapStories: MapStory[] = [...mapStories, ...regionalMapStories]
 
 /** 演示口令 → 热门行程 id */
 export const passcodeHotTripMap: Record<string, number> = {

@@ -1,0 +1,85 @@
+import type { MapStory } from './explore-discover'
+
+/** 地图缩小后，以当前城市为中心展示的周边实况头像 */
+export const MAP_STORY_CLUSTERS: Record<string, string[]> = {
+  beijing: ['bj-1', 'tj-1', 'bd-1', 'sjz-1'],
+  shanghai: ['sh-1', 'su-1', 'hz-1', 'nj-1'],
+  chengdu: ['cd-1', 'cq-1'],
+  yantai: ['yt-1', 'qd-1'],
+  sanya: ['sy-1', 'hk-1'],
+}
+
+export const regionalMapStories: MapStory[] = [
+  {
+    id: 'sjz-1',
+    cityId: 'shijiazhuang',
+    cover: '/covers/discover-city.jpg',
+    text: '正定古城的晨钟很慢',
+    location: '石家庄市',
+    lng: 114.5149,
+    lat: 38.0428,
+  },
+  {
+    id: 'su-1',
+    cityId: 'suzhou',
+    cover: '/covers/wuzhen.jpg',
+    text: '园林里藏着半部江南史',
+    location: '苏州市',
+    lng: 120.5853,
+    lat: 31.2989,
+  },
+  {
+    id: 'hz-1',
+    cityId: 'hangzhou',
+    cover: '/covers/discover-flower.jpg',
+    text: '西湖边第一口龙井',
+    location: '杭州市',
+    lng: 120.1551,
+    lat: 30.2741,
+  },
+  {
+    id: 'nj-1',
+    cityId: 'nanjing',
+    cover: '/covers/discover-mountain.jpg',
+    text: '梧桐大道把秋天拉长',
+    location: '南京市',
+    lng: 118.7969,
+    lat: 32.0603,
+  },
+  {
+    id: 'cq-1',
+    cityId: 'chongqing',
+    cover: '/covers/discover-food.jpg',
+    text: '洪崖洞的灯从江面升起',
+    location: '重庆市',
+    lng: 106.5516,
+    lat: 29.563,
+  },
+  {
+    id: 'qd-1',
+    cityId: 'qingdao',
+    cover: '/covers/discover-stream.jpg',
+    text: '栈桥尽头的海很蓝',
+    location: '青岛市',
+    lng: 120.3826,
+    lat: 36.0671,
+  },
+  {
+    id: 'sy-1',
+    cityId: 'sanya',
+    cover: '/covers/hainan.jpg',
+    text: '后海村的浪刚好',
+    location: '三亚市',
+    lng: 109.512,
+    lat: 18.252,
+  },
+  {
+    id: 'hk-1',
+    cityId: 'haikou',
+    cover: '/covers/hainan.jpg',
+    text: '骑楼老街的风有椰香',
+    location: '海口市',
+    lng: 110.3312,
+    lat: 20.0311,
+  },
+]

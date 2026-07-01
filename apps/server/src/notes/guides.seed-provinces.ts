@@ -24,6 +24,27 @@ export const provinceGuideSeeds: TravelGuideSeed[] = [
 - 海河游船`,
   },
   {
+    id: 'guide-shijiazhuang-2d',
+    title: '石家庄2日｜正定古城慢游',
+    author: '燕赵行记',
+    cover: '/covers/discover-city.jpg',
+    destination: '石家庄',
+    days: 2,
+    category: '人文',
+    likes: '1.4w',
+    snippet: '正定古城 + 隆兴寺 + 荣国府',
+    keywords: ['石家庄', '正定', '古城', '河北'],
+    content: `第1天
+- 正定古城
+- 隆兴寺
+- 阳和楼
+
+第2天
+- 荣国府
+- 赵云庙
+- 滹沱河生态公园`,
+  },
+  {
     id: 'guide-baoding-2d',
     title: '保定2日直隶文化线',
     author: '燕赵行记',
