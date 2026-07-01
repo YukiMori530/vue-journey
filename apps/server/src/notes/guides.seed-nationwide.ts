@@ -378,7 +378,7 @@ export const nationwideGuideSeeds: TravelGuideSeed[] = [
     id: 'guide-wuzhen-2d',
     title: '乌镇2日水乡慢游',
     author: '江南行记',
-    cover: '/covers/default.jpg',
+    cover: '/covers/wuzhen.jpg',
     destination: '乌镇',
     days: 2,
     category: '古镇',

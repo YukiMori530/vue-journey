@@ -1,14 +1,17 @@
+import { coverForDestination } from '../data/destination-covers'
+
 export const FALLBACK_COVER = '/covers/default.jpg'
 
-/** 从攻略封面与目的地中选出可用的静态图（排除 default） */
+/** 从攻略封面与目的地中选出可用的静态图，保证总有图可显示 */
 export function pickGuideStaticCover(
   cover: string | undefined,
   destination: string,
   destinationCovers: Record<string, string> = {},
-): string | undefined {
-  const city = destination.replace(/(市|县|区|省)$/, '').trim()
-  const candidates = mergeCoverCandidates(destinationCovers[city], cover)
-  return candidates.find((item) => item !== FALLBACK_COVER)
+): string {
+  const city = destination.replace(/(市|县|区|省|镇)$/, '').trim()
+  const destCover = destinationCovers[city] ?? coverForDestination(destination)
+  const candidates = mergeCoverCandidates(destCover, cover)
+  return candidates.find((item) => item !== FALLBACK_COVER) ?? FALLBACK_COVER
 }
 
 /** 去重合并封面候选，最后兜底 default */

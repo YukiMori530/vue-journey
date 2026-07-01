@@ -9,6 +9,9 @@ const LOCAL_POI_PHOTOS: Array<{ keywords: string[]; path: string }> = [
   { keywords: ['圆明园'], path: '/covers/pois/yuanmingyuan.jpg' },
   { keywords: ['八达岭', '慕田峪', '长城'], path: '/covers/pois/badaling.jpg' },
   { keywords: ['天坛', '景山', '什刹海', '南锣鼓巷', '簋街', '护国寺'], path: '/covers/pois/qianmen.jpg' },
+  { keywords: ['蜈支洲', '亚龙湾', '天涯海角', '南山寺', '椰梦长廊', '后海', '骑楼', '万绿园'], path: '/covers/hainan.jpg' },
+  { keywords: ['丽江', '大研', '束河', '玉龙雪山', '蓝月谷', '木府'], path: '/covers/lijiang.jpg' },
+  { keywords: ['乌镇', '西栅', '东栅', '西塘', '水乡', '茅盾故居'], path: '/covers/wuzhen.jpg' },
 ];
 
 const DESTINATION_PHOTOS: Record<string, string> = {
@@ -21,6 +24,8 @@ const DESTINATION_PHOTOS: Record<string, string> = {
   海南: '/covers/hainan.jpg',
   三亚: '/covers/hainan.jpg',
   海口: '/covers/hainan.jpg',
+  丽江: '/covers/lijiang.jpg',
+  乌镇: '/covers/wuzhen.jpg',
 };
 
 const FOOD_PHOTO = '/covers/pois/qianmen.jpg';

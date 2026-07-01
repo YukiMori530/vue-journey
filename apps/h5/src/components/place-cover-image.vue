@@ -5,6 +5,9 @@ import {
   placePhotoFallbackLabel,
   resolvePlacePhoto,
 } from '../utils/place-photo'
+import { coverForDestination } from '../data/destination-covers'
+import { lookupDestinationPhoto } from '../utils/poi-photo-registry'
+import { FALLBACK_COVER } from '../utils/cover-images'
 
 const props = defineProps<{
   name: string
@@ -29,11 +32,21 @@ const fallbackStyle = computed(() => {
   }
 })
 
+function resolveLocalFallback(): string {
+  return (
+    props.staticSrc ??
+    lookupDestinationPhoto(props.destination) ??
+    coverForDestination(props.destination) ??
+    FALLBACK_COVER
+  )
+}
+
 async function loadPhoto() {
-  const hasStatic = !!props.staticSrc
+  const localFallback = resolveLocalFallback()
+  const hasStatic = !!localFallback
   loading.value = !hasStatic
   failed.value = false
-  src.value = hasStatic ? props.staticSrc! : null
+  src.value = hasStatic ? localFallback : null
 
   const photo = await resolvePlacePhoto(props.name, props.destination, {
     category: props.category,
@@ -56,8 +69,9 @@ watch(
 )
 
 function onError() {
-  if (props.staticSrc) {
-    src.value = props.staticSrc
+  const fallback = resolveLocalFallback()
+  if (fallback && src.value !== fallback) {
+    src.value = fallback
     failed.value = false
     return
   }
@@ -68,7 +82,7 @@ function onError() {
 
 <template>
   <div class="place-cover">
-    <div v-if="loading && !staticSrc" class="place-cover__skeleton" aria-hidden="true" />
+    <div v-if="loading && !src" class="place-cover__skeleton" aria-hidden="true" />
     <img
       v-else-if="src && !failed"
       class="place-cover__img"
