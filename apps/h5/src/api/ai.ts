@@ -172,3 +172,10 @@ export async function reviseTripStream(
 
   return trip
 }
+
+export function chatTrip(tripId: number, message: string) {
+  return request<{ reply: string }>('/api/ai/chat', {
+    method: 'POST',
+    body: JSON.stringify({ tripId, message }),
+  }).then((data) => data.reply)
+}

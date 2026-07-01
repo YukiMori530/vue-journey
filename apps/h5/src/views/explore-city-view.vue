@@ -3,6 +3,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import PlaceCoverImage from '../components/place-cover-image.vue'
 import { getCityById } from '../data/explore-pois'
+import { ensureExploreCity } from '../utils/explore-city-registry'
 import { fetchCityGuides, type XhsNote } from '../api/notes'
 import { extractGuideCoverPlace } from '../utils/guide-cover'
 import {
@@ -85,13 +86,19 @@ function goBack() {
   router.back()
 }
 
-function openOnMap() {
-  const mapCity = exploreCity.value
-  if (mapCity) {
-    router.push({ path: '/explore', query: { city: mapCity.id } })
-    return
-  }
-  router.push({ path: '/explore', query: { dest: fetchDestination.value } })
+async function openOnMap() {
+  const dest = fetchDestination.value
+  const id = cityId.value
+  const mapCity = exploreCity.value ?? (await ensureExploreCity(id, dest))
+  router.push({
+    path: '/explore',
+    query: {
+      city: mapCity.id,
+      dest,
+      lng: String(mapCity.center[0]),
+      lat: String(mapCity.center[1]),
+    },
+  })
 }
 
 async function importGuide(note: XhsNote) {

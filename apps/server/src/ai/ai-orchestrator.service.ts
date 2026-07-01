@@ -8,6 +8,8 @@ import {
   buildReviseUserPrompt,
   REVISE_SYSTEM_PROMPT,
   SYSTEM_PROMPT,
+  TRIP_CHAT_SYSTEM_PROMPT,
+  buildTripChatUserPrompt,
 } from './prompts';
 import {
   formatZodErrors,
@@ -132,6 +134,48 @@ export class AiOrchestratorService {
       if (this.shouldFallbackToMock(error)) {
         this.logger.warn(`DeepSeek 不可用（${this.describeAiError(error)}），回退 mock 修订`);
         return this.mockReviseItinerary(trip, message, dayPlans);
+      }
+      throw error;
+    }
+  }
+
+  async chatWithTrip(trip: TripResponse, message: string): Promise<string> {
+    const dayPlans = trip.dayPlans.map((day) => ({
+      day: day.day,
+      title: day.title,
+      places: day.places.map((place) => ({
+        name: typeof place === 'string' ? place : place.name,
+      })),
+    }));
+
+    if (!this.client) {
+      return this.mockTripChat(message, trip);
+    }
+
+    try {
+      const response = await this.client.chat.completions.create({
+        model: 'deepseek-chat',
+        messages: [
+          { role: 'system', content: TRIP_CHAT_SYSTEM_PROMPT },
+          {
+            role: 'user',
+            content: buildTripChatUserPrompt({
+              destination: trip.destination,
+              title: trip.title,
+              days: trip.days,
+              dayPlans,
+              message,
+            }),
+          },
+        ],
+        temperature: 0.65,
+      });
+      const text = response.choices[0]?.message?.content?.trim();
+      return text || this.mockTripChat(message, trip);
+    } catch (error) {
+      if (this.shouldFallbackToMock(error)) {
+        this.logger.warn(`DeepSeek 不可用（${this.describeAiError(error)}），回退 mock 对话`);
+        return this.mockTripChat(message, trip);
       }
       throw error;
     }
@@ -270,5 +314,19 @@ export class AiOrchestratorService {
       days: dayPlans,
     });
     return applyDeterministicRevision(snapshot, message, trip.destination);
+  }
+
+  private mockTripChat(message: string, trip: TripResponse): string {
+    const text = message.trim();
+    if (/你是谁|你是什么|介绍一下/.test(text)) {
+      return '我是途绘 AI 助手，可以回答旅行相关问题，也可以帮你调整当前行程。想改行程时，直接说比如「第三天轻松一点」或「长城单独一天」即可。';
+    }
+    if (/你好|您好|hi|hello/i.test(text)) {
+      return `你好！我看到你正在看「${trip.title}」。有什么想聊的，或想调整行程的地方，都可以告诉我。`;
+    }
+    if (/谢谢|感谢/.test(text)) {
+      return '不客气！有需要随时叫我。';
+    }
+    return `关于「${trip.title}」，我可以帮你解答问题或调整行程。若需要改路线，请具体说想改哪一天、哪些地点。`;
   }
 }

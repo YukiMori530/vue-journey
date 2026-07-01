@@ -64,9 +64,18 @@ function checkIn() {
       </div>
 
       <div class="map-placeholder">
-        <div class="map-dot map-dot--1" />
-        <div class="map-dot map-dot--2" />
-        <div class="map-dot map-dot--3" />
+        <p v-if="!recentCollects.length" class="footprint-empty">
+          打卡后会在这里展示你的足迹城市
+        </p>
+        <div v-else class="footprint-preview">
+          <div
+            v-for="(item, index) in recentCollects"
+            :key="item.id"
+            class="footprint-dot"
+            :style="{ left: `${18 + index * 28}%`, top: `${30 + (index % 2) * 22}%` }"
+            :title="item.locationName"
+          />
+        </div>
         <button type="button" class="checkin-btn" @click="checkIn">打卡新足迹</button>
       </div>
     </section>
@@ -216,7 +225,25 @@ function checkIn() {
     #eef4fb;
 }
 
-.map-dot {
+.footprint-empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  padding: 0 24px 40px;
+  font-size: 13px;
+  color: #646566;
+  text-align: center;
+}
+
+.footprint-preview {
+  position: absolute;
+  inset: 0;
+}
+
+.footprint-dot {
   position: absolute;
   width: 10px;
   height: 10px;
@@ -224,21 +251,6 @@ function checkIn() {
   border-radius: 50%;
   background: #1989fa;
   box-shadow: 0 2px 6px rgb(25 137 250 / 35%);
-}
-
-.map-dot--1 {
-  top: 38%;
-  left: 28%;
-}
-
-.map-dot--2 {
-  top: 52%;
-  left: 58%;
-}
-
-.map-dot--3 {
-  top: 30%;
-  left: 72%;
 }
 
 .checkin-btn {

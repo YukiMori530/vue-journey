@@ -118,6 +118,33 @@ export const REVISE_SYSTEM_PROMPT = `${SYSTEM_PROMPT}
 - 用户说「少一点」「太多」时，每天减至 2～3 个 POI
 - 用户要把某类体验加入某天时，优先改对应 day，不要打乱远郊单独成天的规则`;
 
+export const TRIP_CHAT_SYSTEM_PROMPT = `你是「途绘」旅行助手，友好、简洁地用中文回答用户问题。
+用户正在查看一份行程，你可以参考行程上下文聊天，但不要输出 JSON，也不要假装已经修改了行程。
+若用户想改行程，请引导其用自然语言描述具体修改（如「长城单独一天」），系统会在用户确认后执行修改。
+回答控制在 120 字以内，除非用户追问细节。`;
+
+export function buildTripChatUserPrompt(input: {
+  destination: string;
+  title: string;
+  days: number;
+  dayPlans: Array<{
+    day: number;
+    title?: string;
+    places: Array<{ name: string }>;
+  }>;
+  message: string;
+}) {
+  const summary = input.dayPlans.map((day) => ({
+    day: day.day,
+    title: day.title,
+    places: day.places.map((p) => p.name),
+  }));
+  return `当前行程：${input.title}（${input.destination}，${input.days} 天）
+每日概要：${JSON.stringify(summary)}
+
+用户消息：${input.message}`;
+}
+
 export function buildReviseUserPrompt(input: {
   destination: string;
   days: number;

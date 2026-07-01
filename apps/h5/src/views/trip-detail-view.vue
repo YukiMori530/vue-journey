@@ -15,6 +15,8 @@ import { useProfileStore } from '../stores/profile'
 import { enrichDayPlan } from '../utils/enrich-trip-stops'
 import { formatStopDisplayName } from '../utils/display-stop-name'
 import { pickRevisionFocusDay } from '../utils/pick-revision-focus-day'
+import { isTripRevisionIntent } from '../utils/trip-chat-intent'
+import * as aiApi from '../api/ai'
 import { preloadAMap } from '../utils/amap'
 import { showAppFailToast, showAppSuccessToast, queueAppSuccessToast } from '../utils/app-toast'
 import { ApiError } from '../api/client'
@@ -157,6 +159,7 @@ async function handleRevise(message: string) {
     return
   }
   revising.value = true
+  chatSheetRef.value?.beginThinking()
   const beforePlans = trip.value.dayPlans.map((day) => ({
     ...day,
     places: [...day.places],
@@ -188,6 +191,26 @@ function openAdjustSheet() {
 }
 
 async function handleReviseSubmit(message: string) {
+  if (!trip.value || revising.value) {
+    return
+  }
+
+  if (!isTripRevisionIntent(message)) {
+    revising.value = true
+    chatSheetRef.value?.beginReplying()
+    try {
+      const reply = await aiApi.chatTrip(trip.value.id, message)
+      chatSheetRef.value?.finishThinking(reply)
+    } catch (error) {
+      chatSheetRef.value?.failThinking(
+        error instanceof ApiError ? error.message : '回复失败，请稍后再试',
+      )
+    } finally {
+      revising.value = false
+    }
+    return
+  }
+
   await handleRevise(message)
 }
 

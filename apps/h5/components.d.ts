@@ -17,6 +17,7 @@ declare module 'vue' {
     ConfirmDialog: typeof import('./src/components/confirm-dialog.vue')['default']
     CoverImage: typeof import('./src/components/cover-image.vue')['default']
     CreateActionSheet: typeof import('./src/components/create-action-sheet.vue')['default']
+    ExploreCityPicker: typeof import('./src/components/explore-city-picker.vue')['default']
     LogoutDialog: typeof import('./src/components/logout-dialog.vue')['default']
     PasscodeSheet: typeof import('./src/components/passcode-sheet.vue')['default']
     PlaceCoverImage: typeof import('./src/components/place-cover-image.vue')['default']

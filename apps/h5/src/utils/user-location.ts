@@ -1,5 +1,6 @@
 import { loadAMap } from './amap'
 import { exploreCities } from '../data/explore-pois'
+import { getBrowserPosition } from './geolocation-permission'
 
 export interface UserLocationResult {
   lng: number
@@ -48,44 +49,68 @@ function matchExploreCityId(lng: number, lat: number, cityName?: string) {
   return best.id
 }
 
-/** 尝试获取用户位置并匹配探索页城市 */
+async function detectViaAmap(): Promise<UserLocationResult | null> {
+  await loadAMap(['AMap.Geolocation'])
+  return new Promise((resolve) => {
+    const geolocation = new AMap.Geolocation({
+      enableHighAccuracy: true,
+      timeout: 8000,
+      GeoLocationFirst: true,
+    })
+    geolocation.getCurrentPosition(
+      (status, result) => {
+        if (status !== 'complete' || !result?.position) {
+          resolve(null)
+          return
+        }
+        const lng = result.position.lng
+        const lat = result.position.lat
+        const address = result as {
+          addressComponent?: { city?: string; province?: string }
+        }
+        const cityName =
+          typeof address.addressComponent?.city === 'string'
+            ? address.addressComponent.city
+            : typeof address.addressComponent?.province === 'string'
+              ? address.addressComponent.province
+              : undefined
+        resolve({
+          lng,
+          lat,
+          cityName,
+          cityId: matchExploreCityId(lng, lat, cityName),
+        })
+      },
+      () => resolve(null),
+    )
+  })
+}
+
+/** 尝试获取用户位置并匹配探索页城市；先浏览器定位，再高德定位 */
 export async function detectUserLocation(): Promise<UserLocationResult | null> {
   try {
-    await loadAMap(['AMap.Geolocation'])
-    return await new Promise((resolve) => {
-      const geolocation = new AMap.Geolocation({
-        enableHighAccuracy: true,
-        timeout: 8000,
-        GeoLocationFirst: true,
-      })
-      geolocation.getCurrentPosition(
-        (status, result) => {
-          if (status !== 'complete' || !result?.position) {
-            resolve(null)
-            return
-          }
-          const lng = result.position.lng
-          const lat = result.position.lat
-          const address = result as {
-            addressComponent?: { city?: string; province?: string }
-          }
-          const cityName =
-            typeof address.addressComponent?.city === 'string'
-              ? address.addressComponent.city
-              : typeof address.addressComponent?.province === 'string'
-                ? address.addressComponent.province
-                : undefined
-          resolve({
-            lng,
-            lat,
-            cityName,
-            cityId: matchExploreCityId(lng, lat, cityName),
-          })
-        },
-        () => resolve(null),
-      )
-    })
+    const browser = await getBrowserPosition()
+    if (browser) {
+      return {
+        ...browser,
+        cityId: matchExploreCityId(browser.lng, browser.lat),
+      }
+    }
+
+    return await detectViaAmap()
   } catch {
     return null
   }
+}
+
+/** 在用户已授权时获取当前坐标 */
+export async function fetchCurrentPosition(): Promise<UserLocationResult | null> {
+  const browser = await getBrowserPosition()
+  if (browser) {
+    return {
+      ...browser,
+      cityId: matchExploreCityId(browser.lng, browser.lat),
+    }
+  }
+  return detectViaAmap()
 }

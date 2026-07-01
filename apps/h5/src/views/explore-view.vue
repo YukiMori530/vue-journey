@@ -1,14 +1,22 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, shallowRef } from 'vue'
+import { computed, onMounted, onUnmounted, ref, shallowRef, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { showToast } from 'vant'
 import PlaceCoverImage from '../components/place-cover-image.vue'
-import { exploreCities, getCityByIdOrDefault, type ExplorePoi, type PoiCategory } from '../data/explore-pois'
+import ExploreCityPicker from '../components/explore-city-picker.vue'
+import { type ExploreCity, type ExplorePoi, type PoiCategory } from '../data/explore-pois'
 import { mapStories, type MapStory } from '../data/explore-discover'
 import { fetchExploreFeed, type ExploreCollectionItem, type ExploreHotCity } from '../api/notes'
 import { useAuthStore } from '../stores/auth'
 import { loadAMap } from '../utils/amap'
-import { detectUserLocation } from '../utils/user-location'
+import { detectUserLocation, fetchCurrentPosition } from '../utils/user-location'
+import { promptLocationPermission } from '../utils/geolocation-permission'
+import {
+  ensureExploreCity,
+  getExploreCityOrDefault,
+  resolveCityIdFromDestination,
+} from '../utils/explore-city-registry'
+import { normalizeDestinationName } from '../utils/city-slug'
 
 const TAB_BAR_HEIGHT = 68
 
@@ -27,8 +35,11 @@ const storyMarkers = shallowRef<AMap.Marker[]>([])
 const mapLoading = ref(true)
 const mapError = ref('')
 const selectedCategory = ref<PoiCategory | null>(null)
-const currentCityId = ref(exploreCities[0].id)
+const currentCityId = ref('beijing')
 const showCityPicker = ref(false)
+const dynamicCity = ref<ExploreCity | null>(null)
+const mapZoom = ref(11)
+const MIN_POI_ZOOM = 11
 
 const sheetHeight = ref(280)
 const sheetAnchors = ref<number[]>([280, 560])
@@ -38,12 +49,12 @@ const isSheetExpanded = computed(() => {
   return sheetHeight.value >= fullAnchor - 24
 })
 
-const currentCity = computed(() => getCityByIdOrDefault(currentCityId.value))
-
-const cityActions = exploreCities.map((city) => ({
-  name: city.name,
-  id: city.id,
-}))
+const currentCity = computed(() => {
+  if (dynamicCity.value && dynamicCity.value.id === currentCityId.value) {
+    return dynamicCity.value
+  }
+  return getExploreCityOrDefault(currentCityId.value)
+})
 
 const categories: Array<{ icon: string; label: PoiCategory }> = [
   { icon: '🌳', label: '景点' },
@@ -75,27 +86,32 @@ function buildStoryContent(story: MapStory) {
   `
 }
 
-function switchCity(cityId: string) {
-  if (cityId === currentCityId.value) {
-    return
-  }
-
-  currentCityId.value = cityId
+function applyCity(city: ExploreCity, center?: [number, number]) {
+  currentCityId.value = city.id
+  dynamicCity.value = city
   selectedCategory.value = null
 
   const map = mapInstance.value
   if (map) {
-    map.setCenter(currentCity.value.center)
+    map.setCenter(center ?? city.center)
+    const zoom = (map as AMap.Map & { getZoom?: () => number }).getZoom?.()
+    if (typeof zoom === 'number') {
+      map.setZoom(Math.max(zoom, MIN_POI_ZOOM))
+    }
     renderMapMarkers()
   }
 }
 
-function onCitySelect(action: { name: string }) {
-  const city = exploreCities.find((item) => item.name === action.name)
-  if (city) {
-    switchCity(city.id)
-    showToast(`已切换到${city.name}`)
+function switchCity(cityId: string, center?: [number, number]) {
+  if (cityId === currentCityId.value && !center) {
+    return
   }
+  applyCity(getExploreCityOrDefault(cityId), center)
+}
+
+async function onCityPicked(city: ExploreCity) {
+  applyCity(city)
+  showToast(`已切换到${city.name}`)
 }
 
 function openCityPicker() {
@@ -127,12 +143,11 @@ function handlePoiClick(poi: ExplorePoi) {
 }
 
 function handleStoryClick(story: MapStory) {
-  const city = exploreCities.find((item) => item.id === story.cityId)
-  if (city) {
-    router.push(`/explore/city/${city.id}`)
-    return
-  }
-  showToast(story.text)
+  const city = getExploreCityOrDefault(story.cityId)
+  router.push({
+    path: `/explore/city/${city.id}`,
+    query: { dest: normalizeDestinationName(city.name) },
+  })
 }
 
 function clearPoiMarkers() {
@@ -152,6 +167,10 @@ function renderPoiMarkers() {
   }
 
   clearPoiMarkers()
+
+  if (mapZoom.value < MIN_POI_ZOOM) {
+    return
+  }
 
   poiMarkers.value = visiblePois.value.map((poi) => {
     const marker = new AMap.Marker({
@@ -213,6 +232,15 @@ async function initMap() {
 
     map.add(new AMap.Scale({ position: 'LB' }))
     mapInstance.value = map
+    const zoomableMap = map as AMap.Map & {
+      getZoom?: () => number
+      on?: (event: string, handler: () => void) => void
+    }
+    mapZoom.value = zoomableMap.getZoom?.() ?? 11
+    zoomableMap.on?.('zoomend', () => {
+      mapZoom.value = zoomableMap.getZoom?.() ?? mapZoom.value
+      renderPoiMarkers()
+    })
     renderMapMarkers()
   } catch (error) {
     mapError.value =
@@ -222,50 +250,45 @@ async function initMap() {
   }
 }
 
-function handleMyLocation() {
+async function handleMyLocation() {
   const map = mapInstance.value
   if (!map) {
     return
   }
 
-  const geolocation = new AMap.Geolocation({
-    enableHighAccuracy: true,
-    timeout: 8000,
-  })
+  const allowed = await promptLocationPermission()
+  if (!allowed) {
+    return
+  }
 
-  geolocation.getCurrentPosition(
-    (status, result) => {
-      if (status === 'complete') {
-        map.setCenter([result.position.lng, result.position.lat])
-        showToast('已定位到当前位置')
-        return
-      }
-      map.setCenter(currentCity.value.center)
-      showToast(`定位失败，已回到${currentCity.value.name}`)
-    },
-    () => {
-      map.setCenter(currentCity.value.center)
-      showToast(`定位失败，已回到${currentCity.value.name}`)
-    },
-  )
+  const location = await fetchCurrentPosition()
+  if (location) {
+    map.setCenter([location.lng, location.lat])
+    if (location.cityId) {
+      switchCity(location.cityId, [location.lng, location.lat])
+    }
+    showToast('已定位到当前位置')
+    return
+  }
+
+  map.setCenter(currentCity.value.center)
+  showToast(`定位失败，已回到${currentCity.value.name}`)
 }
 
 function resolveExploreCityId(destination: string) {
-  const normalized = destination.replace(/(市|县|区|省)$/, '')
-  const matched = exploreCities.find(
-    (city) =>
-      city.name.includes(normalized) ||
-      normalized.includes(city.name.replace(/(市|县|区)$/, '')),
-  )
-  return matched?.id ?? normalized.toLowerCase()
+  return resolveCityIdFromDestination(destination)
 }
 
 function openCollection(item: ExploreCollectionItem) {
-  router.push(`/explore/city/${resolveExploreCityId(item.destination)}`)
+  const dest = normalizeDestinationName(item.destination)
+  router.push({
+    path: `/explore/city/${resolveExploreCityId(item.destination)}`,
+    query: { dest },
+  })
 }
 
 function openHotCity(city: ExploreHotCity) {
-  const dest = city.name.replace(/(市|县|区|省)$/, '')
+  const dest = normalizeDestinationName(city.name)
   router.push({ path: `/explore/city/${city.id}`, query: { dest } })
 }
 
@@ -311,11 +334,40 @@ async function loadExploreFeed() {
   }
 }
 
-async function initUserCity() {
+async function applyRouteCityQuery() {
   const queryCity = typeof route.query.city === 'string' ? route.query.city : ''
-  if (queryCity) {
-    switchCity(queryCity)
+  const queryDest = typeof route.query.dest === 'string' ? route.query.dest.trim() : ''
+  const queryLng = typeof route.query.lng === 'string' ? Number(route.query.lng) : NaN
+  const queryLat = typeof route.query.lat === 'string' ? Number(route.query.lat) : NaN
+  const hasCoords = Number.isFinite(queryLng) && Number.isFinite(queryLat)
+
+  if (queryCity || queryDest) {
+    const cityId = queryCity || resolveCityIdFromDestination(queryDest)
+    const dest = queryDest || undefined
+    const city = await ensureExploreCity(cityId, dest)
+    const center = hasCoords ? ([queryLng, queryLat] as [number, number]) : city.center
+    applyCity(city, center)
+    return true
+  }
+
+  return false
+}
+
+const LOCATION_PROMPT_KEY = 'tuhui_location_prompted'
+
+async function initUserCity() {
+  const fromRoute = await applyRouteCityQuery()
+  if (fromRoute) {
     return
+  }
+
+  const prompted = sessionStorage.getItem(LOCATION_PROMPT_KEY) === '1'
+  if (!prompted) {
+    const allowed = await promptLocationPermission()
+    sessionStorage.setItem(LOCATION_PROMPT_KEY, '1')
+    if (!allowed) {
+      return
+    }
   }
 
   const location = await detectUserLocation()
@@ -324,7 +376,8 @@ async function initUserCity() {
   }
 
   if (location.cityId) {
-    switchCity(location.cityId)
+    switchCity(location.cityId, [location.lng, location.lat])
+    return
   }
 
   const map = mapInstance.value
@@ -332,6 +385,13 @@ async function initUserCity() {
     map.setCenter([location.lng, location.lat])
   }
 }
+
+watch(
+  () => [route.query.city, route.query.dest, route.query.lng, route.query.lat] as const,
+  () => {
+    void applyRouteCityQuery()
+  },
+)
 
 onMounted(async () => {
   updateSheetAnchors()
@@ -416,7 +476,7 @@ onUnmounted(() => {
       <div class="sheet-content">
         <h2 class="sheet-title">为你发现了一些地点合集</h2>
         <van-loading v-if="feedLoading" class="feed-loading" vertical size="20">加载中...</van-loading>
-        <div v-else class="collection-scroll">
+        <div v-else class="collection-scroll" @touchmove.stop>
           <button
             v-for="item in exploreCollections"
             :key="item.id"
@@ -461,13 +521,10 @@ onUnmounted(() => {
       </div>
     </van-floating-panel>
 
-    <van-action-sheet
+    <ExploreCityPicker
       v-model:show="showCityPicker"
-      :actions="cityActions"
-      cancel-text="取消"
-      description="选择探索城市"
-      close-on-click-action
-      @select="onCitySelect"
+      :hot-cities="hotCities"
+      @select="onCityPicked"
     />
   </div>
 </template>
@@ -714,6 +771,10 @@ onUnmounted(() => {
   gap: 12px;
   padding: 0 16px 14px;
   overflow-x: auto;
+  overflow-y: hidden;
+  touch-action: pan-x;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
 }
 

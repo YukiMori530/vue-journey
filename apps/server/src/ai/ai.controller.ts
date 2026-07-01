@@ -11,6 +11,7 @@ import { GeoService } from '../geo/geo.service';
 import { ParseGuideDto } from './dto/parse-guide.dto';
 import { PlanItineraryDto } from './dto/plan-itinerary.dto';
 import { ReviseTripDto } from './dto/revise-trip.dto';
+import { ChatTripDto } from './dto/chat-trip.dto';
 import { itineraryToCreateTripDto, itineraryToUpdateFields } from './itinerary.mapper';
 import { sanitizeItinerary } from './itinerary-sanitize';
 import { countPlaces } from '../trips/trip-builder';
@@ -229,5 +230,12 @@ export class AiController {
     } finally {
       res.end();
     }
+  }
+
+  @Post('chat')
+  async chat(@CurrentUser() user: AuthUser, @Body() dto: ChatTripDto) {
+    const trip = await this.tripsService.findOne(dto.tripId, user.id);
+    const reply = await this.aiOrchestrator.chatWithTrip(trip, dto.message);
+    return { data: { reply }, message: 'ok' };
   }
 }

@@ -56,7 +56,7 @@ function resetChat() {
     {
       id: 'welcome',
       role: 'assistant',
-      text: '有什么想调整的？告诉我你的想法，途绘会重新规划并更新地图。',
+      text: '有什么想聊的或想调整的？聊天问答、改行程都可以告诉我。',
     },
   ]
   thinkingSteps.value = []
@@ -115,6 +115,11 @@ function failThinking(message: string) {
   pushAssistantMessage(message)
 }
 
+function beginReplying() {
+  thinkingSteps.value = ['途绘正在回复…']
+  scrollToBottom()
+}
+
 function sendMessage(text?: string) {
   if (props.busy) {
     return
@@ -125,7 +130,6 @@ function sendMessage(text?: string) {
   }
   input.value = ''
   pushUserMessage(content)
-  beginThinking()
   emit('submit', content)
 }
 
@@ -133,6 +137,8 @@ defineExpose({
   appendThinkingStep,
   finishThinking,
   failThinking,
+  beginThinking,
+  beginReplying,
 })
 </script>
 
@@ -148,7 +154,7 @@ defineExpose({
       <header class="trip-chat__header">
         <div>
           <h2 class="trip-chat__title">和途绘聊聊</h2>
-          <p class="trip-chat__subtitle">说出你想改的地方，AI 会重新规划行程</p>
+          <p class="trip-chat__subtitle">可以聊天问答，也可以说出想改的地方重新规划</p>
         </div>
         <button type="button" class="trip-chat__close" aria-label="关闭" @click="show = false">
           <van-icon name="cross" size="18" />
