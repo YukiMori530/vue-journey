@@ -17,6 +17,8 @@ import {
   resolveCityIdFromDestination,
 } from '../utils/explore-city-registry'
 import { normalizeDestinationName } from '../utils/city-slug'
+import { pickGuideStaticCover } from '../utils/cover-images'
+import { DESTINATION_COVERS } from '../utils/trip-covers'
 
 const TAB_BAR_HEIGHT = 68
 
@@ -280,6 +282,14 @@ function resolveExploreCityId(destination: string) {
   return resolveCityIdFromDestination(destination)
 }
 
+function collectionStaticCover(item: ExploreCollectionItem) {
+  return pickGuideStaticCover(item.cover, item.destination, DESTINATION_COVERS)
+}
+
+function hotCityStaticCover(city: ExploreHotCity) {
+  return pickGuideStaticCover(city.cover, city.name, DESTINATION_COVERS)
+}
+
 function openCollection(item: ExploreCollectionItem) {
   const dest = normalizeDestinationName(item.destination)
   router.push({
@@ -489,6 +499,7 @@ onUnmounted(() => {
               class="collection-cover"
               :name="item.coverPlace"
               :destination="item.destination"
+              :static-src="collectionStaticCover(item)"
             />
             <p class="collection-title">{{ item.title }}</p>
           </button>
@@ -506,6 +517,7 @@ onUnmounted(() => {
               class="hot-city-cover"
               :name="city.coverPlace"
               :destination="city.name"
+              :static-src="hotCityStaticCover(city)"
             />
             <div class="hot-city-info">
               <div class="hot-city-head">
@@ -770,6 +782,7 @@ onUnmounted(() => {
 .collection-scroll {
   display: flex;
   gap: 12px;
+  align-items: flex-start;
   padding: 0 16px 14px;
   overflow-x: auto;
   overflow-y: hidden;
@@ -784,16 +797,19 @@ onUnmounted(() => {
 }
 
 .collection-card {
-  flex-shrink: 0;
+  flex: 0 0 148px;
   width: 148px;
   padding: 0;
   border: none;
   background: transparent;
   text-align: left;
   cursor: pointer;
+  display: flex;
+  flex-direction: column;
 }
 
 .collection-card :deep(.collection-cover) {
+  flex-shrink: 0;
   width: 148px;
   height: 112px;
   border-radius: 14px;
@@ -802,6 +818,9 @@ onUnmounted(() => {
 
 .collection-title {
   display: -webkit-box;
+  flex-shrink: 0;
+  min-height: 36px;
+  max-height: 36px;
   margin: 8px 0 0;
   overflow: hidden;
   font-size: 13px;

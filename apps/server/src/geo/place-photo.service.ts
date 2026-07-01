@@ -18,6 +18,9 @@ const DESTINATION_PHOTOS: Record<string, string> = {
   杭州: '/covers/pois/yiheyuan.jpg',
   西安: '/covers/pois/badaling.jpg',
   青岛: '/covers/pois/yiheyuan.jpg',
+  海南: '/covers/hainan.jpg',
+  三亚: '/covers/hainan.jpg',
+  海口: '/covers/hainan.jpg',
 };
 
 const FOOD_PHOTO = '/covers/pois/qianmen.jpg';

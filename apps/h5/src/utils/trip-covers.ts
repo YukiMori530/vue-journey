@@ -5,9 +5,14 @@ import { mergeCoverCandidates } from './cover-images'
 export const DESTINATION_COVERS: Record<string, string> = {
   成都: '/covers/chengdu.jpg',
   海南: '/covers/hainan.jpg',
+  三亚: '/covers/hainan.jpg',
+  海口: '/covers/hainan.jpg',
   烟台: '/covers/yantai.jpg',
   北京: '/covers/beijing.jpg',
   上海: '/covers/shanghai.jpg',
+  杭州: '/covers/discover-flower.jpg',
+  西安: '/covers/discover-mountain.jpg',
+  青岛: '/covers/discover-stream.jpg',
 }
 
 /** 封面加载候选列表：本地优先，再试数据库里的 URL，最后 default */

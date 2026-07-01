@@ -10,6 +10,8 @@ const props = defineProps<{
   name: string
   destination: string
   category?: string
+  /** 本地/攻略封面，优先展示；高德图加载成功后会替换 */
+  staticSrc?: string
 }>()
 
 const src = ref<string | null>(null)
@@ -28,23 +30,25 @@ const fallbackStyle = computed(() => {
 })
 
 async function loadPhoto() {
-  loading.value = true
+  const hasStatic = !!props.staticSrc
+  loading.value = !hasStatic
   failed.value = false
-  src.value = null
+  src.value = hasStatic ? props.staticSrc! : null
 
   const photo = await resolvePlacePhoto(props.name, props.destination, {
     category: props.category,
   })
   if (photo) {
     src.value = photo
-  } else {
+  } else if (!hasStatic) {
     failed.value = true
+    src.value = null
   }
   loading.value = false
 }
 
 watch(
-  () => [props.name, props.destination] as const,
+  () => [props.name, props.destination, props.staticSrc] as const,
   () => {
     void loadPhoto()
   },
@@ -52,6 +56,11 @@ watch(
 )
 
 function onError() {
+  if (props.staticSrc) {
+    src.value = props.staticSrc
+    failed.value = false
+    return
+  }
   failed.value = true
   src.value = null
 }
@@ -59,7 +68,7 @@ function onError() {
 
 <template>
   <div class="place-cover">
-    <div v-if="loading" class="place-cover__skeleton" aria-hidden="true" />
+    <div v-if="loading && !staticSrc" class="place-cover__skeleton" aria-hidden="true" />
     <img
       v-else-if="src && !failed"
       class="place-cover__img"
@@ -85,6 +94,8 @@ function onError() {
   position: relative;
   overflow: hidden;
   flex-shrink: 0;
+  width: 100%;
+  height: 100%;
 }
 
 .place-cover__img,
