@@ -9,7 +9,9 @@ import {
   REVISE_SYSTEM_PROMPT,
   SYSTEM_PROMPT,
   TRIP_CHAT_SYSTEM_PROMPT,
+  ASSISTANT_SYSTEM_PROMPT,
   buildTripChatUserPrompt,
+  buildAssistantUserPrompt,
 } from './prompts';
 import {
   formatZodErrors,
@@ -181,6 +183,40 @@ export class AiOrchestratorService {
     }
   }
 
+  async chatAssistant(
+    message: string,
+    context?: { page?: string; hint?: string },
+  ): Promise<string> {
+    if (!this.client) {
+      return this.mockAssistantChat(message, context?.hint);
+    }
+
+    try {
+      const response = await this.client.chat.completions.create({
+        model: 'deepseek-chat',
+        messages: [
+          { role: 'system', content: ASSISTANT_SYSTEM_PROMPT },
+          {
+            role: 'user',
+            content: buildAssistantUserPrompt({
+              message,
+              page: context?.page,
+              hint: context?.hint,
+            }),
+          },
+        ],
+        temperature: 0.7,
+      });
+      const text = response.choices[0]?.message?.content?.trim();
+      return text || this.mockAssistantChat(message, context?.hint);
+    } catch (error) {
+      if (this.shouldFallbackToMock(error)) {
+        return this.mockAssistantChat(message, context?.hint);
+      }
+      throw error;
+    }
+  }
+
   private async generateItinerary(
     messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[],
     expectedDays?: number,
@@ -328,5 +364,22 @@ export class AiOrchestratorService {
       return '不客气！有需要随时叫我。';
     }
     return `关于「${trip.title}」，我可以帮你解答问题或调整行程。若需要改路线，请具体说想改哪一天、哪些地点。`;
+  }
+
+  private mockAssistantChat(message: string, hint?: string): string {
+    const text = message.trim();
+    if (/你是谁|你是什么|介绍一下/.test(text)) {
+      return '我是途绘小助手，可以聊旅行、推荐城市景点，也能引导你创建 AI 行程。想规划的话可以说「帮我规划海南三日游」。';
+    }
+    if (/规划|几日游|行程/.test(text)) {
+      return '想生成完整行程，可以点底部「+」创建，或直接说「帮我规划XX几日游」。我会检索攻略并自动生成路线。';
+    }
+    if (/海南|三亚|海口/.test(text)) {
+      return '海南推荐三亚看海（蜈支洲、亚龙湾、后海村）+ 海口骑楼老街。可以说「帮我规划海南三日游」一键生成。';
+    }
+    if (hint) {
+      return `我看到你在看：${hint}。可以告诉我你想补哪些景点，或说「帮我规划XX几日游」重新生成。`;
+    }
+    return '有什么旅行问题都可以问我。想规划行程，直接说目的地和天数就行。';
   }
 }

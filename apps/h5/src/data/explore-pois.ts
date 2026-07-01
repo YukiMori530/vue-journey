@@ -115,6 +115,31 @@ export const exploreCities: ExploreCity[] = [
     ],
   },
   {
+    id: 'tianjin',
+    name: '天津市',
+    center: [117.201, 39.084],
+    weather: '🌤 晴 14° - 26°',
+    pois: [
+      { id: 'tj-1', name: '天津之眼', category: '景点', icon: '🎡', lng: 117.184, lat: 39.154 },
+      { id: 'tj-2', name: '意式风情区', category: '景点', icon: '🏛️', lng: 117.195, lat: 39.135 },
+      { id: 'tj-3', name: '五大道', category: '景点', icon: '🌳', lng: 117.201, lat: 39.118 },
+      { id: 'tj-4', name: '古文化街', category: '美食', icon: '🥟', lng: 117.195, lat: 39.144 },
+      { id: 'tj-5', name: '海河游船', category: '景点', icon: '🚢', lng: 117.201, lat: 39.128 },
+      { id: 'tj-6', name: '滨江道', category: '购物', icon: '🛍️', lng: 117.198, lat: 39.125 },
+    ],
+  },
+  {
+    id: 'baoding',
+    name: '保定市',
+    center: [115.465, 38.874],
+    weather: '☀ 晴 12° - 24°',
+    pois: [
+      { id: 'bd-1', name: '直隶总督署', category: '景点', icon: '🏛️', lng: 115.494, lat: 38.862 },
+      { id: 'bd-2', name: '白洋淀', category: '景点', icon: '🌊', lng: 115.988, lat: 38.798 },
+      { id: 'bd-3', name: '驴肉火烧老店', category: '美食', icon: '🥙', lng: 115.468, lat: 38.871 },
+    ],
+  },
+  {
     id: 'dunhuang',
     name: '敦煌市',
     center: [94.662289, 40.142128],

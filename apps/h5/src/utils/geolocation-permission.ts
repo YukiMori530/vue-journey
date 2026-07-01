@@ -1,4 +1,4 @@
-import { showConfirmDialog } from 'vant'
+import { showAppConfirmDialog } from './app-dialog'
 
 export type LocationPermissionState = 'granted' | 'denied' | 'prompt' | 'unsupported'
 
@@ -30,27 +30,24 @@ export async function promptLocationPermission(): Promise<boolean> {
     return true
   }
   if (state === 'denied') {
-    try {
-      await showConfirmDialog({
-        title: '需要定位权限',
-        message: '请在浏览器或系统设置中允许「途绘」访问位置信息，以便定位到您所在城市。',
-        confirmButtonText: '我知道了',
-        showCancelButton: false,
-      })
-    } catch {
-      // ignore
-    }
+    await showAppConfirmDialog({
+      title: '需要定位权限',
+      message: '请在浏览器或系统设置中允许「途绘」访问位置信息，以便定位到您所在城市。',
+      confirmText: '我知道了',
+      showCancel: false,
+      icon: 'location',
+    }).catch(() => undefined)
     return false
   }
 
   try {
-    await showConfirmDialog({
+    return await showAppConfirmDialog({
       title: '开启定位',
       message: '途绘需要获取您的位置，以便在地图上展示所在城市与附近推荐。',
-      confirmButtonText: '允许定位',
-      cancelButtonText: '暂不',
+      confirmText: '允许定位',
+      cancelText: '暂不',
+      icon: 'location',
     })
-    return true
   } catch {
     return false
   }

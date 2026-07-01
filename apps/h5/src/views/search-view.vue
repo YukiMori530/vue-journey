@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { showConfirmDialog, showToast } from 'vant'
+import { showToast } from 'vant'
 import CoverImage from '../components/cover-image.vue'
 import { filterDiscover } from '../data/discover'
 import { useTripStore } from '../stores/trip'
+import { showAppConfirmDialog } from '../utils/app-dialog'
 import { ApiError } from '../api/client'
 import type { FeaturedTopic, HotTrip } from '../data/discover'
 
@@ -23,9 +24,11 @@ function goBack() {
 
 async function openHotTrip(item: HotTrip) {
   try {
-    await showConfirmDialog({
+    await showAppConfirmDialog({
       title: '添加热门行程',
       message: `将「${item.title}」加入我的计划？`,
+      confirmText: '添加',
+      icon: 'confirm',
     })
     const trip = await tripStore.addTripFromHotTrip(item)
     showToast('已添加到我的计划')
@@ -39,9 +42,11 @@ async function openHotTrip(item: HotTrip) {
 
 async function openTopic(item: FeaturedTopic) {
   try {
-    await showConfirmDialog({
+    await showAppConfirmDialog({
       title: '添加精选专题',
       message: `根据专题「${item.title}」生成探索行程？`,
+      confirmText: '生成',
+      icon: 'confirm',
     })
     const trip = await tripStore.addTripFromTopic(item)
     showToast('专题行程已生成')

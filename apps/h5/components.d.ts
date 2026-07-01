@@ -11,6 +11,7 @@ export {}
 /* prettier-ignore */
 declare module 'vue' {
   export interface GlobalComponents {
+    AppDialogHost: typeof import('./src/components/app-dialog-host.vue')['default']
     AppHeader: typeof import('./src/components/app-header.vue')['default']
     AppTabBar: typeof import('./src/components/app-tab-bar.vue')['default']
     AppToastHost: typeof import('./src/components/app-toast-host.vue')['default']
@@ -36,6 +37,7 @@ declare module 'vue' {
     TripOverviewBody: typeof import('./src/components/trip-overview-body.vue')['default']
     TripOverviewMap: typeof import('./src/components/trip-overview-map.vue')['default']
     TripPackSheet: typeof import('./src/components/trip-pack-sheet.vue')['default']
+    TuhuiAssistant: typeof import('./src/components/tuhui-assistant.vue')['default']
     VanActionSheet: typeof import('vant/es')['ActionSheet']
     VanButton: typeof import('vant/es')['Button']
     VanEmpty: typeof import('vant/es')['Empty']

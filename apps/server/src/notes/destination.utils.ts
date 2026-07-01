@@ -3,6 +3,14 @@ const DESTINATION_ALIASES: Record<string, string[]> = {
   福州: ['福州', '榕城', '三坊七巷'],
   厦门: ['厦门', '鼓浪屿', '思明'],
   三亚: ['三亚', '海棠湾', '亚龙湾'],
+  海南: ['海南', '海口', '三亚', '琼海', '万宁', '蜈支洲', '天涯海角'],
+  海口: ['海口', '骑楼', '海南'],
+  伊犁: ['伊犁', '那拉提', '赛里木湖', '喀赞其'],
+  喀什: ['喀什', '南疆', '艾提尕尔'],
+  凤凰: ['凤凰', '凤凰古城', '沱江', '湘西'],
+  凯里: ['凯里', '西江', '千户苗寨', '镇远'],
+  天津: ['天津', '津门', '海河'],
+  保定: ['保定', '直隶'],
   武夷山: ['武夷山', '武夷', '九曲溪'],
   黄山: ['黄山', '宏村', '西递'],
   泰山: ['泰山', '泰安', '岱庙'],
@@ -112,6 +120,42 @@ const KNOWN_CITIES = [
   '新干',
   '吉安',
   '武隆',
+  '太原',
+  '大同',
+  '呼和浩特',
+  '沈阳',
+  '大连',
+  '长春',
+  '吉林',
+  '合肥',
+  '温州',
+  '台州',
+  '徐州',
+  '开封',
+  '衡阳',
+  '凤凰',
+  '南宁',
+  '柳州',
+  '汕头',
+  '佛山',
+  '湛江',
+  '绵阳',
+  '宜宾',
+  '遵义',
+  '凯里',
+  '兰州',
+  '天水',
+  '嘉峪关',
+  '银川',
+  '中卫',
+  '乌鲁木齐',
+  '喀什',
+  '伊犁',
+  '西宁',
+  '林芝',
+  '湖州',
+  '嘉兴',
+  '海口',
 ];
 
 function normalizeCityToken(name: string): string {
@@ -186,26 +230,36 @@ export function noteMatchesDestination(
   note: { destination: string; title: string; keywords: string[]; snippet?: string; content?: string },
   destination: string,
 ): boolean {
-  const aliases = destinationAliases(destination);
-  const haystack = [
-    note.destination,
-    note.title,
-    note.snippet ?? '',
-    note.content ?? '',
-    ...note.keywords,
-  ].join(' ');
+  const destNorm = normalizeSearchDestination(destination);
+  const noteNorm = normalizeSearchDestination(note.destination);
 
-  return aliases.some((alias) => {
+  if (noteNorm === destNorm) {
+    return true;
+  }
+  if (noteNorm.includes(destNorm) || destNorm.includes(noteNorm)) {
+    return true;
+  }
+
+  const requestAliases = destinationAliases(destination);
+  const noteAliases = destinationAliases(note.destination);
+
+  for (const alias of requestAliases) {
+    if (alias.length < 2) {
+      continue;
+    }
+    if (noteNorm.includes(alias) || alias.includes(noteNorm)) {
+      return true;
+    }
+    if (noteAliases.some((item) => item === alias || item.includes(alias) || alias.includes(item))) {
+      return true;
+    }
+  }
+
+  const titleHaystack = [note.title, ...note.keywords].join(' ');
+  return requestAliases.some((alias) => {
     if (alias.length < 2) {
       return false;
     }
-    if (haystack.includes(alias)) {
-      return true;
-    }
-    // 「北京三日游」应匹配 destination=北京 的攻略
-    return (
-      note.destination.length >= 2 &&
-      alias.includes(note.destination)
-    );
+    return titleHaystack.includes(alias) && noteNorm.includes(alias.slice(0, 2));
   });
 }

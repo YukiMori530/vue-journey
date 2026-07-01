@@ -256,7 +256,9 @@ days 长度必须等于 ${dto.days}。优先采用笔记中出现的真实地点
       /啤酒|海鲜|美食|逛吃|小吃/.test(prefText) ||
       dto.preferences.some((item) => /啤酒|海鲜|美食/.test(item));
 
-    const templates = foodFocused
+    const templates = /海南|三亚|海口/.test(dto.destination)
+      ? ['骑楼老街', '亚龙湾', '天涯海角', '蜈支洲岛', '后海村', '第一市场', '假日海滩']
+      : foodFocused
       ? ['啤酒博物馆', '海鲜市场', '台东步行街', '劈柴院', '奥帆中心', '本地海鲜大排档']
       : ['中心广场', '特色步行街', '本地美食街', '城市公园', '博物馆', '网红咖啡店'];
 

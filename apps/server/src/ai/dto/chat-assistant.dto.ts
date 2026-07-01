@@ -1,0 +1,14 @@
+import { IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
+
+export class ChatAssistantDto {
+  @IsString()
+  @MinLength(1)
+  @MaxLength(500)
+  message!: string;
+
+  @IsOptional()
+  context?: {
+    page?: string;
+    hint?: string;
+  };
+}

@@ -179,3 +179,13 @@ export function chatTrip(tripId: number, message: string) {
     body: JSON.stringify({ tripId, message }),
   }).then((data) => data.reply)
 }
+
+export function chatAssistant(
+  message: string,
+  context?: { page?: string; hint?: string },
+) {
+  return request<{ reply: string }>('/api/ai/assistant', {
+    method: 'POST',
+    body: JSON.stringify({ message, context }),
+  }).then((data) => data.reply)
+}

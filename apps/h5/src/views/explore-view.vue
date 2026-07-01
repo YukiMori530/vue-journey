@@ -143,10 +143,11 @@ function handlePoiClick(poi: ExplorePoi) {
 }
 
 function handleStoryClick(story: MapStory) {
-  const city = getExploreCityOrDefault(story.cityId)
+  const dest = normalizeDestinationName(story.location)
+  const cityId = resolveCityIdFromDestination(dest)
   router.push({
-    path: `/explore/city/${city.id}`,
-    query: { dest: normalizeDestinationName(city.name) },
+    path: `/explore/city/${cityId}`,
+    query: { dest },
   })
 }
 

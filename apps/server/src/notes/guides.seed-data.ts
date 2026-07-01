@@ -13,6 +13,7 @@ export interface TravelGuideSeed {
 }
 
 import { nationwideGuideSeeds } from './guides.seed-nationwide'
+import { provinceGuideSeeds } from './guides.seed-provinces'
 
 const baseGuideSeeds: TravelGuideSeed[] = [
   {
@@ -503,6 +504,32 @@ const baseGuideSeeds: TravelGuideSeed[] = [
 - 十里画廊`,
   },
   {
+    id: 'guide-hainan-classic-3d',
+    title: '海南经典3日：三亚+海口',
+    author: '途绘编辑部',
+    cover: '/covers/hainan.jpg',
+    destination: '海南',
+    days: 3,
+    category: '海滨',
+    likes: '4.2w',
+    snippet: '蜈支洲岛浮潜 + 骑楼老街 + 后海村日落',
+    keywords: ['海南', '三亚', '海口', '海滨', '三日游'],
+    content: `第1天
+- 骑楼老街
+- 假日海滩
+- 万绿园
+
+第2天
+- 亚龙湾
+- 天涯海角
+- 第一市场
+
+第3天
+- 蜈支洲岛
+- 后海村
+- 鹿回头公园`,
+  },
+  {
     id: 'guide-sanya-beach-3d',
     title: '三亚3日海滨度假',
     author: '热带假期',
@@ -948,4 +975,5 @@ const baseGuideSeeds: TravelGuideSeed[] = [
 export const travelGuideSeeds: TravelGuideSeed[] = [
   ...baseGuideSeeds,
   ...nationwideGuideSeeds,
+  ...provinceGuideSeeds,
 ]

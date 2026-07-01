@@ -27,7 +27,7 @@ const router = createRouter({
     { path: '/', name: 'trip', component: TripView, meta: { requiresAuth: true } },
     { path: '/explore', name: 'explore', component: ExploreView },
     { path: '/explore/city/:cityId', name: 'explore-city', component: ExploreCityView, meta: { hideTabBar: true } },
-    { path: '/login', name: 'login', component: LoginView, meta: { hideTabBar: true, guestOnly: true } },
+    { path: '/login', name: 'login', component: LoginView, meta: { hideTabBar: true, guestOnly: true, hideAssistant: true } },
     { path: '/search', name: 'search', component: SearchView, meta: { hideTabBar: true, requiresAuth: true } },
     { path: '/import', name: 'import', component: ImportView, meta: { hideTabBar: true, requiresAuth: true } },
     { path: '/import/xhs', name: 'xhs-search', component: XhsSearchView, meta: { hideTabBar: true, requiresAuth: true } },

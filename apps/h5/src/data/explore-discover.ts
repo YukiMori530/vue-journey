@@ -35,7 +35,7 @@ export const mapStories: MapStory[] = [
   },
   {
     id: 'tj-1',
-    cityId: 'beijing',
+    cityId: 'tianjin',
     cover: '/covers/discover-city.jpg',
     text: '桥边看游船像老电影',
     location: '天津市',
@@ -44,12 +44,12 @@ export const mapStories: MapStory[] = [
   },
   {
     id: 'bd-1',
-    cityId: 'beijing',
+    cityId: 'baoding',
     cover: '/covers/discover-food.jpg',
     text: '驴肉火烧脆得掉渣',
-    location: '高碑店市',
-    lng: 115.8736,
-    lat: 39.3269,
+    location: '保定市',
+    lng: 115.4648,
+    lat: 38.8744,
   },
   {
     id: 'cd-1',

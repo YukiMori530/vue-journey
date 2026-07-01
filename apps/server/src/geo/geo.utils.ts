@@ -1,6 +1,20 @@
+import {
+  NATIONWIDE_CITY_CENTERS,
+  NATIONWIDE_CITY_LANDMARKS,
+} from './geo.landmarks-nationwide';
+
 export interface GeoPoint {
   lng: number;
   lat: number;
+}
+
+function mergeCityLandmarks(
+  base: Record<string, Record<string, GeoPoint>>,
+  extra: Record<string, Record<string, GeoPoint>>,
+) {
+  for (const [city, landmarks] of Object.entries(extra)) {
+    base[city] = { ...(base[city] ?? {}), ...landmarks };
+  }
 }
 
 export const MAX_CITY_STOP_KM = 20;
@@ -89,6 +103,10 @@ const CITY_DEFAULT_CENTER: Record<string, GeoPoint> = {
   秦皇岛: { lng: 119.6, lat: 39.935 },
   南昌: { lng: 115.857, lat: 28.682 },
   三亚: { lng: 109.512, lat: 18.252 },
+  海南: { lng: 109.7, lat: 19.2 },
+  海口: { lng: 110.331, lat: 20.031 },
+  天津: { lng: 117.201, lat: 39.084 },
+  保定: { lng: 115.465, lat: 38.874 },
   平潭: { lng: 119.79, lat: 25.50 },
   福州: { lng: 119.296, lat: 26.074 },
   武夷山: { lng: 118.035, lat: 27.756 },
@@ -126,6 +144,8 @@ const CITY_DEFAULT_CENTER: Record<string, GeoPoint> = {
   珠海: { lng: 113.576, lat: 22.270 },
   泉州: { lng: 118.589, lat: 24.908 },
 };
+
+Object.assign(CITY_DEFAULT_CENTER, NATIONWIDE_CITY_CENTERS);
 
 export function defaultCityCenter(city: string): GeoPoint {
   const region = extractDestinationRegion(city);
@@ -468,7 +488,6 @@ const CITY_LANDMARKS: Record<string, Record<string, GeoPoint>> = {
   },
   三亚: {
     亚龙湾: { lng: 109.645, lat: 18.233 },
-    亚龙湾海滩: { lng: 109.645, lat: 18.233 },
     亚龙湾热带天堂森林公园: { lng: 109.64, lat: 18.256 },
     天涯海角: { lng: 109.35, lat: 18.3 },
     蜈支洲岛: { lng: 109.766, lat: 18.312 },
@@ -483,7 +502,22 @@ const CITY_LANDMARKS: Record<string, Record<string, GeoPoint>> = {
     大东海: { lng: 109.525, lat: 18.222 },
     西岛: { lng: 109.366, lat: 18.225 },
   },
+  海口: {
+    骑楼老街: { lng: 110.348, lat: 20.044 },
+    假日海滩: { lng: 110.276, lat: 20.026 },
+    万绿园: { lng: 110.315, lat: 20.031 },
+    海南省博物馆: { lng: 110.365, lat: 20.015 },
+    雷琼海口火山群: { lng: 110.272, lat: 19.931 },
+  },
+  天津: {
+    天津之眼: { lng: 117.184, lat: 39.154 },
+    意式风情区: { lng: 117.195, lat: 39.135 },
+    五大道: { lng: 117.201, lat: 39.118 },
+    古文化街: { lng: 117.195, lat: 39.144 },
+  },
 };
+
+mergeCityLandmarks(CITY_LANDMARKS, NATIONWIDE_CITY_LANDMARKS);
 
 export function normalizeCityName(city: string): string {
   return city.replace(/(市|县|区|自治州|地区|盟)$/, '').trim();
@@ -542,14 +576,27 @@ export function lookupKnownLandmark(name: string, city?: string): GeoPoint | nul
   return null;
 }
 
+/** 省级目的地合并下属城市地标 */
+const PROVINCE_LANDMARK_CITIES: Record<string, string[]> = {
+  海南: ['三亚', '海口'],
+};
+
 /** 某城市已知地标列表，用于无法定位时的兜底 */
 export function knownLandmarkStops(
   city: string,
 ): Array<{ name: string; lng: number; lat: number }> {
   const region = extractDestinationRegion(city);
   const normalized = normalizeCityName(city);
-  const table =
+  let table =
     CITY_LANDMARKS[normalized] ?? CITY_LANDMARKS[region] ?? null;
+
+  if (!table && PROVINCE_LANDMARK_CITIES[region]) {
+    table = {};
+    for (const subCity of PROVINCE_LANDMARK_CITIES[region]) {
+      Object.assign(table, CITY_LANDMARKS[subCity] ?? {});
+    }
+  }
+
   if (!table) {
     return [];
   }

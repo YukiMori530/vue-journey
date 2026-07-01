@@ -1,6 +1,20 @@
+import {
+  NATIONWIDE_CITY_CENTERS,
+  NATIONWIDE_CITY_LANDMARKS,
+} from '../data/geo-landmarks-nationwide'
+
 export interface GeoPoint {
   lng: number
   lat: number
+}
+
+function mergeCityLandmarks(
+  base: Record<string, Record<string, GeoPoint>>,
+  extra: Record<string, Record<string, GeoPoint>>,
+) {
+  for (const [city, landmarks] of Object.entries(extra)) {
+    base[city] = { ...(base[city] ?? {}), ...landmarks }
+  }
 }
 
 export const MAX_CITY_STOP_KM = 20
@@ -291,6 +305,8 @@ const CITY_LANDMARKS: Record<string, Record<string, GeoPoint>> = {
     西岛: { lng: 109.366, lat: 18.225 },
   },
 }
+
+mergeCityLandmarks(CITY_LANDMARKS, NATIONWIDE_CITY_LANDMARKS)
 
 export function distanceKm(a: GeoPoint, b: GeoPoint): number {
   const toRad = (deg: number) => (deg * Math.PI) / 180
@@ -770,6 +786,10 @@ const CITY_DEFAULT_CENTER: Record<string, GeoPoint> = {
   秦皇岛: { lng: 119.6, lat: 39.935 },
   南昌: { lng: 115.857, lat: 28.682 },
   三亚: { lng: 109.512, lat: 18.252 },
+  海南: { lng: 109.7, lat: 19.2 },
+  海口: { lng: 110.331, lat: 20.031 },
+  天津: { lng: 117.201, lat: 39.084 },
+  保定: { lng: 115.465, lat: 38.874 },
   平潭: { lng: 119.79, lat: 25.50 },
   福州: { lng: 119.296, lat: 26.074 },
   武夷山: { lng: 118.035, lat: 27.756 },
@@ -807,6 +827,8 @@ const CITY_DEFAULT_CENTER: Record<string, GeoPoint> = {
   珠海: { lng: 113.576, lat: 22.270 },
   泉州: { lng: 118.589, lat: 24.908 },
 }
+
+Object.assign(CITY_DEFAULT_CENTER, NATIONWIDE_CITY_CENTERS)
 
 export function defaultCityCenter(city: string): GeoPoint {
   const region = extractDestinationRegion(city)

@@ -19,6 +19,7 @@ import { isTripRevisionIntent } from '../utils/trip-chat-intent'
 import * as aiApi from '../api/ai'
 import { preloadAMap } from '../utils/amap'
 import { showAppFailToast, showAppSuccessToast, queueAppSuccessToast } from '../utils/app-toast'
+import { useAssistantStore } from '../stores/assistant'
 import { ApiError } from '../api/client'
 import type { TripStop } from '../types/trip'
 
@@ -34,6 +35,8 @@ const deleting = ref(false)
 const showChatSheet = ref(false)
 const revising = ref(false)
 const chatSheetRef = ref<InstanceType<typeof TripChatSheet> | null>(null)
+
+const assistantStore = useAssistantStore()
 const chatDraftMessage = ref('')
 const showStopDetail = ref(false)
 const selectedStop = ref<{ stop: TripStop; index: number } | null>(null)
@@ -119,7 +122,10 @@ function selectDayFromOverview(day: number) {
 
 function openChatSheet(draft?: string) {
   if (isEmpty.value) {
-    showAppFailToast('先添加地点再调整行程')
+    assistantStore.open({
+      hint: trip.value ? `当前空行程：${trip.value.title}` : undefined,
+      draft: draft ?? '帮我补全这份行程的具体景点',
+    })
     return
   }
   chatDraftMessage.value = draft?.trim() ?? ''
