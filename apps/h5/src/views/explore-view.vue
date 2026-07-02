@@ -10,7 +10,11 @@ import { fetchExploreFeed, type ExploreCollectionItem, type ExploreHotCity } fro
 import { useAuthStore } from '../stores/auth'
 import { loadAMap } from '../utils/amap'
 import { detectUserLocation, fetchCurrentPosition } from '../utils/user-location'
-import { promptLocationPermission } from '../utils/geolocation-permission'
+import {
+  ensureExploreLocationConsent,
+  ensureLocationForAction,
+  setLocationConsent,
+} from '../utils/geolocation-permission'
 import {
   ensureExploreCity,
   getExploreCityOrDefault,
@@ -290,13 +294,14 @@ async function handleMyLocation() {
     return
   }
 
-  const allowed = await promptLocationPermission()
+  const allowed = await ensureLocationForAction()
   if (!allowed) {
     return
   }
 
   const location = await fetchCurrentPosition()
   if (location) {
+    setLocationConsent('granted')
     map.setCenter([location.lng, location.lat])
     if (location.cityId) {
       switchCity(location.cityId, [location.lng, location.lat])
@@ -395,27 +400,23 @@ async function applyRouteCityQuery() {
   return false
 }
 
-const LOCATION_PROMPT_KEY = 'tuhui_location_prompted'
-
 async function initUserCity() {
   const fromRoute = await applyRouteCityQuery()
   if (fromRoute) {
     return
   }
 
-  const prompted = sessionStorage.getItem(LOCATION_PROMPT_KEY) === '1'
-  if (!prompted) {
-    const allowed = await promptLocationPermission()
-    sessionStorage.setItem(LOCATION_PROMPT_KEY, '1')
-    if (!allowed) {
-      return
-    }
+  const allowed = await ensureExploreLocationConsent()
+  if (!allowed) {
+    return
   }
 
   const location = await detectUserLocation()
   if (!location) {
     return
   }
+
+  setLocationConsent('granted')
 
   if (location.cityId) {
     switchCity(location.cityId, [location.lng, location.lat])

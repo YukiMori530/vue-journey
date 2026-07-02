@@ -99,6 +99,7 @@ export class AiOrchestratorService {
   async reviseItinerary(
     trip: TripResponse,
     message: string,
+    options?: { focusDay?: number; scope?: 'day' | 'trip' },
   ): Promise<ItineraryOutput> {
     const dayPlans = trip.dayPlans.map((day) => ({
       day: day.day,
@@ -127,6 +128,8 @@ export class AiOrchestratorService {
               title: trip.title,
               dayPlans,
               message,
+              focusDay: options?.focusDay,
+              scope: options?.scope,
             }),
           },
         ],

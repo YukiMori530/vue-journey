@@ -103,6 +103,7 @@ export async function reviseTripStream(
   tripId: number,
   message: string,
   onLog?: (log: PlanStreamLog) => void,
+  options?: { focusDay?: number; scope?: 'day' | 'trip' },
 ): Promise<Trip> {
   const token = getStoredToken()
   const response = await fetch(`${API_BASE}/api/ai/revise/stream`, {
@@ -111,7 +112,12 @@ export async function reviseTripStream(
       'Content-Type': 'application/json',
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
-    body: JSON.stringify({ tripId, message }),
+    body: JSON.stringify({
+      tripId,
+      message,
+      focusDay: options?.focusDay,
+      scope: options?.scope,
+    }),
   })
 
   if (!response.ok) {

@@ -22,7 +22,7 @@ function dayPlaceKey(day: DayPlan): string {
   return [...placeNames(day)].sort().join('|')
 }
 
-function parseDayFromMessage(message: string, maxDays: number): number | null {
+export function parseDayFromMessage(message: string, maxDays: number): number | null {
   const digitMatch = message.match(/第\s*(\d+)\s*天/)
   if (digitMatch) {
     const day = Number(digitMatch[1])

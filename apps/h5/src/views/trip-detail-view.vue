@@ -16,6 +16,12 @@ import { enrichDayPlan } from '../utils/enrich-trip-stops'
 import { formatStopDisplayName } from '../utils/display-stop-name'
 import { pickRevisionFocusDay } from '../utils/pick-revision-focus-day'
 import { isTripRevisionIntent } from '../utils/trip-chat-intent'
+import {
+  buildRevisionPayload,
+  shouldConfirmRevisionScope,
+  type RevisionScope,
+} from '../utils/revision-scope'
+import { showAppConfirmDialog } from '../utils/app-dialog'
 import * as aiApi from '../api/ai'
 import { preloadAMap } from '../utils/amap'
 import { showAppFailToast, showAppSuccessToast, queueAppSuccessToast } from '../utils/app-toast'
@@ -160,7 +166,10 @@ function editStop(payload: { stop: TripStop; index: number }) {
   )
 }
 
-async function handleRevise(message: string) {
+async function handleRevise(
+  message: string,
+  options?: { focusDay?: number; scope?: RevisionScope },
+) {
   if (!trip.value || revising.value) {
     return
   }
@@ -171,12 +180,26 @@ async function handleRevise(message: string) {
     places: [...day.places],
   }))
   try {
-    const updated = await tripStore.reviseTrip(trip.value.id, message, (log) => {
-      chatSheetRef.value?.appendThinkingStep(log.text)
+    const payload = buildRevisionPayload(message, {
+      focusDay: options?.focusDay ?? null,
+      scope: options?.scope,
     })
+    const updated = await tripStore.reviseTrip(
+      trip.value.id,
+      payload.message,
+      (log) => {
+        chatSheetRef.value?.appendThinkingStep(log.text)
+      },
+      {
+        focusDay: payload.focusDay,
+        scope: payload.scope,
+      },
+    )
     const focusDay = pickRevisionFocusDay(beforePlans, updated, message)
     showChatSheet.value = false
-    selectedTab.value = focusDay
+    selectedTab.value = options?.scope === 'day' && options.focusDay
+      ? options.focusDay
+      : focusDay
     showAppSuccessToast('行程已更新')
   } catch (error) {
     chatSheetRef.value?.failThinking(
@@ -194,6 +217,42 @@ function openDeleteDialog() {
 function openAdjustSheet() {
   clearChatDraft()
   openChatSheet()
+}
+
+async function resolveRevisionScope(message: string): Promise<{
+  focusDay?: number
+  scope?: RevisionScope
+} | null> {
+  if (!trip.value) {
+    return null
+  }
+
+  const viewingDay =
+    typeof selectedTab.value === 'number' ? selectedTab.value : null
+
+  if (
+    viewingDay != null &&
+    shouldConfirmRevisionScope(message, viewingDay, trip.value.days)
+  ) {
+    const onlyDay = await showAppConfirmDialog({
+      title: '确认调整范围',
+      message: `你当前在 DAY ${viewingDay}。是否只调整这一天的安排？`,
+      confirmText: `只改 DAY ${viewingDay}`,
+      cancelText: '整趟行程都改',
+      icon: 'confirm',
+    }).catch(() => true)
+
+    return {
+      focusDay: viewingDay,
+      scope: onlyDay ? 'day' : 'trip',
+    }
+  }
+
+  if (viewingDay != null && isTripRevisionIntent(message)) {
+    return { focusDay: viewingDay }
+  }
+
+  return {}
 }
 
 async function handleReviseSubmit(message: string) {
@@ -217,7 +276,12 @@ async function handleReviseSubmit(message: string) {
     return
   }
 
-  await handleRevise(message)
+  const scopeOptions = await resolveRevisionScope(message)
+  if (scopeOptions == null) {
+    return
+  }
+
+  await handleRevise(message, scopeOptions)
 }
 
 async function confirmDelete() {

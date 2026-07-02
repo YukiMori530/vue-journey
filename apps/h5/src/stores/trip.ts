@@ -212,8 +212,9 @@ export const useTripStore = defineStore('trip', {
       tripId: number,
       message: string,
       onLog?: (log: aiApi.PlanStreamLog) => void,
+      options?: { focusDay?: number; scope?: 'day' | 'trip' },
     ) {
-      await aiApi.reviseTripStream(tripId, message, onLog)
+      await aiApi.reviseTripStream(tripId, message, onLog, options)
       const fresh = await tripsApi.fetchTrip(tripId)
       upsertTrip(this.trips, fresh)
       return fresh

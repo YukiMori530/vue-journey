@@ -146,6 +146,7 @@ export class AiController {
     userId: number,
     message: string,
     onLog?: ReviseLogHandler,
+    options?: { focusDay?: number; scope?: 'day' | 'trip' },
   ) {
     onLog?.('intro', '途绘正在阅读你的修改意见…');
     await sleep(350);
@@ -159,7 +160,10 @@ export class AiController {
     onLog?.('search', '分析当前行程，按你的要求重新规划…');
     await sleep(300);
 
-    const rawItinerary = await this.aiOrchestrator.reviseItinerary(trip, message);
+    const rawItinerary = await this.aiOrchestrator.reviseItinerary(trip, message, {
+      focusDay: options?.focusDay,
+      scope: options?.scope,
+    });
 
     onLog?.('check', '校验每日景点数量与路线分区…');
     await sleep(250);
@@ -194,7 +198,10 @@ export class AiController {
 
   @Post('revise')
   async revise(@CurrentUser() user: AuthUser, @Body() dto: ReviseTripDto) {
-    const data = await this.applyRevision(dto.tripId, user.id, dto.message);
+    const data = await this.applyRevision(dto.tripId, user.id, dto.message, undefined, {
+      focusDay: dto.focusDay,
+      scope: dto.scope,
+    });
     return { data, message: 'revised' };
   }
 
@@ -220,6 +227,10 @@ export class AiController {
         dto.message,
         (kind, text) => {
           write({ type: 'log', kind, text });
+        },
+        {
+          focusDay: dto.focusDay,
+          scope: dto.scope,
         },
       );
 

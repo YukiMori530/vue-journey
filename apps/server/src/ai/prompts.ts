@@ -113,10 +113,13 @@ export const REVISE_SYSTEM_PROMPT = `${SYSTEM_PROMPT}
 你是途绘助手，用户已有一份行程，请根据修改意见输出完整 JSON 行程（结构同上）。
 额外规则：
 - 必须落实用户修改意见，改动应体现在 pois 列表（增删地点），不要只改 title
-- 只改与用户意见相关的部分，未提及的天尽量保持原地点
+- 若用户指定了 focusDay 且 scope=day：只修改该天的 pois，其他天的 pois 必须与输入完全一致（名称、顺序、数量均不变）
+- 用户描述「早上/中午/晚上」餐饮或活动但未提及其他天数时，默认只改 focusDay 当天，按时间顺序插入或替换对应时段站点
+- 未指定 focusDay 或未限制 scope=day 时，只改与用户意见相关的部分，未提及的天尽量保持原地点
 - 总天数必须与当前行程一致，不得增减 days 数组长度
 - 用户说「少一点」「太多」时，每天减至 2～3 个 POI
-- 用户要把某类体验加入某天时，优先改对应 day，不要打乱远郊单独成天的规则`;
+- 用户要把某类体验加入某天时，优先改对应 day，不要打乱远郊单独成天的规则
+- 足浴、按摩、KFC 等应归入用户指定天的晚间或对应时段，不要随意放到其他天`;
 
 export const TRIP_CHAT_SYSTEM_PROMPT = `你是「途绘」旅行助手，友好、简洁地用中文回答用户问题。
 用户正在查看一份行程，你可以参考行程上下文聊天，但不要输出 JSON，也不要假装已经修改了行程。
@@ -177,6 +180,8 @@ export function buildReviseUserPrompt(input: {
     places: Array<{ name: string; category?: string }>;
   }>;
   message: string;
+  focusDay?: number;
+  scope?: 'day' | 'trip';
 }) {
   const summary = input.dayPlans.map((day) => ({
     day: day.day,
@@ -187,6 +192,13 @@ export function buildReviseUserPrompt(input: {
     })),
   }));
 
+  const scopeHint =
+    input.scope === 'day' && input.focusDay
+      ? `\n调整范围：仅修改 DAY ${input.focusDay}。其他天的 pois 必须与「当前每日安排」完全一致，不得增删改。\n`
+      : input.focusDay
+        ? `\n用户当前正在查看 DAY ${input.focusDay}，若未明确提及其他天数，优先只改 DAY ${input.focusDay}。\n`
+        : '';
+
   return `当前行程标题：${input.title}
 目的地：${input.destination}
 天数：${input.days}
@@ -194,7 +206,7 @@ export function buildReviseUserPrompt(input: {
 
 当前每日安排：
 ${JSON.stringify(summary, null, 2)}
-
+${scopeHint}
 用户修改意见：
 ${input.message}
 
